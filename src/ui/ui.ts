@@ -1,6 +1,7 @@
 import { CATALOG, CATEGORIES, type Category } from '../assets/catalog';
 import type { PlacedItem, RoomGame, MoodName } from '../game/game';
-import type { RoomShape } from '../game/room';
+import { WALL_COLORS, FLOOR_COLORS, type RoomShape } from '../game/room';
+import { WALL_FINISHES, FLOOR_FINISHES, type WallFinish, type FloorFinish } from '../assets/materials';
 import { thumbnail } from './thumbs';
 import { audio } from '../core/audio';
 
@@ -86,6 +87,16 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
       <div class="insp-row">
         <span class="insp-label">Depth</span>
         <input type="range" id="room-d" min="5" max="12" step="0.5" />
+      </div>
+      <div class="finish-block">
+        <span class="insp-label">Walls</span>
+        <nav class="cat-tabs finish-tabs" id="wall-styles"></nav>
+        <div class="swatches" id="wall-colors"></div>
+      </div>
+      <div class="finish-block">
+        <span class="insp-label">Floor</span>
+        <nav class="cat-tabs finish-tabs" id="floor-styles"></nav>
+        <div class="swatches" id="floor-colors"></div>
       </div>
     </section>
 
@@ -285,6 +296,8 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   $('btn-room').addEventListener('click', () => {
     roomPanel.classList.toggle('hidden');
     syncRoomUI();
+    syncWallRow();
+    syncFloorRow();
     audio.click();
   });
   $('btn-room-close').addEventListener('click', () => roomPanel.classList.add('hidden'));
@@ -297,6 +310,80 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   }
   roomW.addEventListener('input', () => game.setRoomConfig({ ...game.getRoomConfig(), w: parseFloat(roomW.value) }));
   roomD.addEventListener('input', () => game.setRoomConfig({ ...game.getRoomConfig(), d: parseFloat(roomD.value) }));
+
+  // Wall & floor finishes: style pills plus tint swatches with a free picker.
+  const FINISH_LABELS: Record<string, string> = {
+    paint: 'Paint', stripes: 'Stripes', dots: 'Polka', sprigs: 'Sprigs',
+    planks: 'Planks', chevron: 'Chevron', tiles: 'Tiles', carpet: 'Carpet',
+  };
+  const buildFinishRow = (
+    stylesHost: HTMLElement,
+    colorsHost: HTMLElement,
+    styles: readonly string[],
+    palette: readonly string[],
+    getActive: () => { style: string; color: string },
+    apply: (patch: { style?: string; color?: string }) => void
+  ): (() => void) => {
+    const sync = (): void => {
+      const active = getActive();
+      stylesHost.innerHTML = '';
+      for (const st of styles) {
+        const b = document.createElement('button');
+        b.className = 'cat-tab' + (st === active.style ? ' active' : '');
+        b.textContent = FINISH_LABELS[st] ?? st;
+        b.addEventListener('click', () => {
+          apply({ style: st });
+          audio.click();
+          sync();
+        });
+        stylesHost.appendChild(b);
+      }
+      colorsHost.innerHTML = '';
+      for (const color of palette) {
+        const sw = document.createElement('button');
+        sw.className = 'swatch small' + (color.toLowerCase() === active.color.toLowerCase() ? ' active' : '');
+        sw.style.background = color;
+        sw.title = color;
+        sw.addEventListener('click', () => {
+          apply({ color });
+          audio.click();
+          sync();
+        });
+        colorsHost.appendChild(sw);
+      }
+      const picker = document.createElement('input');
+      picker.type = 'color';
+      picker.className = 'swatch small picker' + (palette.some((c) => c.toLowerCase() === active.color.toLowerCase()) ? '' : ' active');
+      picker.title = 'Custom color';
+      picker.value = active.color;
+      picker.addEventListener('input', () => apply({ color: picker.value }));
+      picker.addEventListener('change', () => {
+        audio.click();
+        sync();
+      });
+      colorsHost.appendChild(picker);
+    };
+    return sync;
+  };
+
+  const syncWallRow = buildFinishRow(
+    $('wall-styles'), $('wall-colors'), WALL_FINISHES, WALL_COLORS,
+    () => ({ style: game.getRoomConfig().wallStyle, color: game.getRoomConfig().wallColor }),
+    (p) => {
+      const cfg = game.getRoomConfig();
+      game.setRoomConfig({ ...cfg, wallStyle: (p.style ?? cfg.wallStyle) as WallFinish, wallColor: p.color ?? cfg.wallColor });
+    }
+  );
+  const syncFloorRow = buildFinishRow(
+    $('floor-styles'), $('floor-colors'), FLOOR_FINISHES, FLOOR_COLORS,
+    () => ({ style: game.getRoomConfig().floorStyle, color: game.getRoomConfig().floorColor }),
+    (p) => {
+      const cfg = game.getRoomConfig();
+      game.setRoomConfig({ ...cfg, floorStyle: (p.style ?? cfg.floorStyle) as FloorFinish, floorColor: p.color ?? cfg.floorColor });
+    }
+  );
+  syncWallRow();
+  syncFloorRow();
   syncRoomUI();
 
   // ----- walk mode -----

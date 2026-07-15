@@ -5,6 +5,7 @@ import {
   buildRoomShell, roomRects, roomWalls, DEFAULT_ROOM, ROOM_H, ROOM_SHAPES,
   type RoomConfig, type RoomShape, type Rect, type WallSeg,
 } from './room';
+import { WALL_FINISHES, FLOOR_FINISHES, type WallFinish, type FloorFinish } from '../assets/materials';
 import { loadRoom, saveRoom, clearSaved, type SavedItem } from './state';
 import { audio } from '../core/audio';
 
@@ -1215,11 +1216,17 @@ export class RoomGame {
 
   private restore(): void {
     const saved = loadRoom();
-    const savedShape = saved?.room?.shape as RoomShape | undefined;
-    const cfg: RoomConfig =
-      saved?.room && savedShape && ROOM_SHAPES.includes(savedShape)
-        ? { w: saved.room.w, d: saved.room.d, shape: savedShape }
-        : { ...DEFAULT_ROOM };
+    const cfg: RoomConfig = { ...DEFAULT_ROOM };
+    const r = saved?.room;
+    if (r) {
+      if (typeof r.w === 'number') cfg.w = r.w;
+      if (typeof r.d === 'number') cfg.d = r.d;
+      if (ROOM_SHAPES.includes(r.shape as RoomShape)) cfg.shape = r.shape as RoomShape;
+      if (WALL_FINISHES.includes(r.wallStyle as WallFinish)) cfg.wallStyle = r.wallStyle as WallFinish;
+      if (FLOOR_FINISHES.includes(r.floorStyle as FloorFinish)) cfg.floorStyle = r.floorStyle as FloorFinish;
+      if (/^#[0-9a-f]{6}$/i.test(r.wallColor ?? '')) cfg.wallColor = r.wallColor as string;
+      if (/^#[0-9a-f]{6}$/i.test(r.floorColor ?? '')) cfg.floorColor = r.floorColor as string;
+    }
     this.applyRoom(cfg);
     if (!saved || saved.items.length === 0) {
       this.starterRoom();

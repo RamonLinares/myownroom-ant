@@ -10,7 +10,15 @@ export interface SavedItem {
 export interface SavedRoom {
   version: 1;
   mood: string;
-  room?: { w: number; d: number; shape: string };
+  room?: {
+    w: number;
+    d: number;
+    shape: string;
+    wallStyle?: string;
+    wallColor?: string;
+    floorStyle?: string;
+    floorColor?: string;
+  };
   items: SavedItem[];
 }
 

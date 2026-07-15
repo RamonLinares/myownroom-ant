@@ -466,6 +466,22 @@ input[type='range'] {
   color: #2c1f10;
 }
 
+.finish-block {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.finish-tabs {
+  padding: 0;
+}
+
+.swatch.small {
+  width: 21px;
+  height: 21px;
+}
+
 body.walk-mode .room-panel { display: none; }
 
 /* ---------- walk mode ---------- */
