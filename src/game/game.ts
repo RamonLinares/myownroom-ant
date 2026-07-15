@@ -1115,6 +1115,10 @@ export class RoomGame {
   private rock(item: PlacedItem): void {
     const g = item.group;
     const r0 = g.rotation.x;
+    // 'YXZ' applies the pitch after the yaw, so the chair rocks front-to-back
+    // along its runners no matter which way the user rotated it.
+    const prevOrder = g.rotation.order;
+    g.rotation.order = 'YXZ';
     this.tweens.push({
       t: 0,
       dur: 1.7,
@@ -1123,6 +1127,7 @@ export class RoomGame {
       },
       done: () => {
         g.rotation.x = r0;
+        g.rotation.order = prevOrder;
       },
     });
   }
