@@ -240,6 +240,8 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
     hintbar.textContent = text;
   };
 
+  game.onToast = showToast;
+
   $('btn-deselect').addEventListener('click', () => game.select(null));
   $('btn-rot-l').addEventListener('click', () => game.rotateSelected(-1));
   $('btn-rot-r').addEventListener('click', () => game.rotateSelected(1));

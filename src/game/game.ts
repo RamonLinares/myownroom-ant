@@ -58,6 +58,7 @@ export class RoomGame {
   onItemsChange: (count: number) => void = () => {};
   onHint: (text: string) => void = () => {};
   onModeChange: (mode: GameMode) => void = () => {};
+  onToast: (text: string) => void = () => {};
   /** Joystick feedback for the touch UI: origin + thumb offset, or null when released. */
   onJoystick: (state: { x: number; y: number; dx: number; dy: number } | null) => void = () => {};
 
@@ -86,6 +87,7 @@ export class RoomGame {
   private walkBlockers: Array<{ x: number; z: number; hw: number; hd: number }> = [];
   private lookPointer: number | null = null;
   private lookLast = { x: 0, y: 0 };
+  private lookMoved = 0;
   private movePointer: number | null = null;
   private moveOrigin = { x: 0, y: 0 };
   private moveVec = { x: 0, y: 0 };
@@ -852,7 +854,7 @@ export class RoomGame {
     this.camera.updateProjectionMatrix();
     this.mode = 'walk';
     this.onModeChange('walk');
-    this.onHint('WASD / arrows to move · drag to look around · Esc to exit');
+    this.onHint('WASD move · drag to look · tap furniture to interact · Esc exits');
     audio.click();
   }
 
@@ -957,6 +959,7 @@ export class RoomGame {
     } else if (this.lookPointer === null) {
       this.lookPointer = e.pointerId;
       this.lookLast = { x: e.clientX, y: e.clientY };
+      this.lookMoved = 0;
     }
     try {
       this.canvas.setPointerCapture(e.pointerId);
@@ -979,6 +982,7 @@ export class RoomGame {
       const dx = e.clientX - this.lookLast.x;
       const dy = e.clientY - this.lookLast.y;
       this.lookLast = { x: e.clientX, y: e.clientY };
+      this.lookMoved += Math.abs(dx) + Math.abs(dy);
       this.walkYaw -= dx * 0.0052;
       this.walkPitch = THREE.MathUtils.clamp(this.walkPitch - dy * 0.0052, -1.25, 1.25);
     }
@@ -990,8 +994,153 @@ export class RoomGame {
       this.moveVec = { x: 0, y: 0 };
       this.onJoystick(null);
     }
-    if (e.pointerId === this.lookPointer) this.lookPointer = null;
+    if (e.pointerId === this.lookPointer) {
+      this.lookPointer = null;
+      // A press that barely moved is a tap: poke whatever is in reach.
+      if (this.lookMoved < 10) this.walkTap(e);
+    }
     if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
+  }
+
+  private walkTap(e: PointerEvent): void {
+    this.setPointer(e);
+    const hits = this.raycaster.intersectObjects(this.items.map((i) => i.group), true);
+    for (const hit of hits) {
+      if (hit.distance > 3.2) return;
+      let o: THREE.Object3D | null = hit.object;
+      while (o) {
+        if (o.userData.item) {
+          this.interact(o.userData.item as PlacedItem);
+          return;
+        }
+        o = o.parent;
+      }
+    }
+  }
+
+  // ------------------------------------------------------------- interactions
+
+  private static readonly POWERED = new Set([
+    'floor-lamp', 'table-lamp', 'paper-lantern', 'candles', 'lava-lamp', 'softbox',
+    'fairy-lights', 'dollhouse', 'air-purifier', 'wall-ac', 'desktop',
+    'monitor', 'laptop', 'ultrawide',
+  ]);
+
+  private interact(item: PlacedItem): void {
+    const id = item.def.id;
+    if (RoomGame.POWERED.has(id)) {
+      const on = this.togglePower(item);
+      audio.click();
+      this.onToast(`${item.def.name} ${on ? 'on' : 'off'}`);
+      return;
+    }
+    if (['radio', 'record-player', 'speakers'].includes(id)) {
+      const playing = audio.toggleTune();
+      this.wiggle(item, 0.03);
+      this.onToast(playing ? `♪ ${item.def.name} playing` : 'Music off');
+      return;
+    }
+    if (id === 'music-box') {
+      audio.musicBox();
+      this.wiggle(item, 0.05);
+      return;
+    }
+    if (id === 'clock' || id === 'mantel-clock') {
+      audio.chime();
+      this.wiggle(item, 0.02);
+      return;
+    }
+    if (['plant', 'small-plant', 'fern', 'mushroom-pot', 'vase', 'snow-globe'].includes(id)) {
+      audio.rustle();
+      this.wiggle(item, 0.09);
+      return;
+    }
+    if (['teddy', 'train', 'books', 'cushion'].includes(id)) {
+      audio.squeak();
+      this.wiggle(item, 0.08);
+      return;
+    }
+    if (id === 'rocking-chair') {
+      audio.creak();
+      this.rock(item);
+      return;
+    }
+    if (id === 'door' || id === 'balcony-doors') {
+      audio.knock();
+      this.onToast('Knock knock…');
+      return;
+    }
+    audio.click();
+    this.pulse(item);
+  }
+
+  /** Toggles an item's lights, glowing parts, and screens on or off. */
+  private togglePower(item: PlacedItem): boolean {
+    const on = !(item.group.userData.powered ?? true);
+    item.group.userData.powered = on;
+    item.group.traverse((c) => {
+      if ((c as THREE.Light).isLight) (c as THREE.Light).visible = on;
+      if (c instanceof THREE.Mesh) {
+        const m = c.material as THREE.MeshStandardMaterial;
+        if (!m.isMeshStandardMaterial) return;
+        const glows = m.emissive.r + m.emissive.g + m.emissive.b > 0.1 && m.emissiveIntensity > 0.15;
+        if (glows || m.userData.baseEI !== undefined) {
+          if (m.userData.baseEI === undefined) m.userData.baseEI = m.emissiveIntensity;
+          m.emissiveIntensity = on ? (m.userData.baseEI as number) : 0.02;
+        }
+        if (m.userData.screen) {
+          if (m.userData.baseColor === undefined) m.userData.baseColor = m.color.getHex();
+          m.color.setHex(on ? (m.userData.baseColor as number) : 0x16181c);
+        }
+      }
+    });
+    return on;
+  }
+
+  private wiggle(item: PlacedItem, amp: number): void {
+    const g = item.group;
+    const r0 = g.rotation.z;
+    this.tweens.push({
+      t: 0,
+      dur: 0.55,
+      step: (k) => {
+        g.rotation.z = r0 + Math.sin(k * Math.PI * 6) * (1 - k) * amp;
+      },
+      done: () => {
+        g.rotation.z = r0;
+      },
+    });
+  }
+
+  private rock(item: PlacedItem): void {
+    const g = item.group;
+    const r0 = g.rotation.x;
+    this.tweens.push({
+      t: 0,
+      dur: 1.7,
+      step: (k) => {
+        g.rotation.x = r0 + Math.sin(k * Math.PI * 7) * (1 - k) * 0.09;
+      },
+      done: () => {
+        g.rotation.x = r0;
+      },
+    });
+  }
+
+  private pulse(item: PlacedItem): void {
+    const g = item.group;
+    const s0 = g.scale.clone();
+    this.tweens.push({
+      t: 0,
+      dur: 0.3,
+      step: (k) => {
+        const f = 1 + Math.sin(k * Math.PI) * 0.05;
+        g.scale.set(s0.x * f, s0.y * f, s0.z * f);
+      },
+      done: () => {
+        g.scale.copy(s0);
+      },
+    });
   }
 
   // ------------------------------------------------------------- photography

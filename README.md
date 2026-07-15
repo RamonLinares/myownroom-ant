@@ -20,6 +20,7 @@ npm run dev      # http://127.0.0.1:5190
 - **Room size & shape**: the 🏠 panel offers rectangle, L, T, and U floor plans plus width/depth sliders (6–14 m × 5–12 m). Walls are rebuilt from the floor plan and rendered single-sided, so the camera can orbit the room fully — near walls vanish, dollhouse style. Furniture re-fits itself and wall decor re-snaps to the nearest wall when the plan changes.
 - **Lighting moods**: day / sunset / night presets; lamps cast real warm light pools at night.
 - **Walk mode**: first-person stroll through your room at eye height — WASD/arrows + drag-to-look on desktop, dual-thumb controls (left joystick, right look) on touch, with furniture collision and a subtle head bob. `Esc` or the door button exits.
+- **Walk interactions**: tap furniture within reach — lamps, fairy lights, screens, and appliances toggle on/off; radios and record players play a tune; clocks chime; the music box twinkles; plants rustle; toys squeak; rocking chairs rock; doors answer with a knock. Everything else gives a friendly poke.
 - **Photography**: the camera button (or `P` while walking) captures a framed photo with a flash and shutter sound; save it as a timestamped PNG from the polaroid preview.
 - **Persistence**: the room auto-saves to `localStorage` and restores on reload; a starter room greets first-time visitors.
 - **Feedback**: procedural WebAudio chirps for select/place/remove (mutable), pop-in tweens, pulsing selection ring.

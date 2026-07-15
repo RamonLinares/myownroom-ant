@@ -845,7 +845,9 @@ function screenMaterial(): THREE.MeshStandardMaterial {
   ctx.fillRect(10, 44, 74, 4);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  return new THREE.MeshStandardMaterial({ map: tex, emissive: '#9fc4d8', emissiveMap: tex, emissiveIntensity: 0.55, roughness: 0.3 });
+  const mat = new THREE.MeshStandardMaterial({ map: tex, emissive: '#9fc4d8', emissiveMap: tex, emissiveIntensity: 0.55, roughness: 0.3 });
+  mat.userData.screen = true;
+  return mat;
 }
 
 function makeMonitor(color: string): THREE.Group {
