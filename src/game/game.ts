@@ -854,7 +854,7 @@ export class RoomGame {
     this.camera.updateProjectionMatrix();
     this.mode = 'walk';
     this.onModeChange('walk');
-    this.onHint('WASD move · drag to look · tap furniture to interact · Esc exits');
+    this.onHint('W/S move · A/D turn · drag to look · tap furniture to interact · Esc exits');
     audio.click();
   }
 
@@ -913,8 +913,12 @@ export class RoomGame {
 
   private updateWalk(dt: number): void {
     const k = this.walkKeys;
+    // Keyboard left/right turns (tank-style); the touch joystick still strafes
+    // because the second thumb already owns the look.
+    const turn = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
+    this.walkYaw -= turn * 1.9 * dt;
     let forward = (k.has('w') || k.has('arrowup') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0);
-    let strafe = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
+    let strafe = 0;
     forward += -this.moveVec.y;
     strafe += this.moveVec.x;
     const mag = Math.hypot(forward, strafe);
