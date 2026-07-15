@@ -315,6 +315,7 @@ export class RoomGame {
       const spot = this.findFloorSpot(item);
       item.group.position.set(spot.x, 0, spot.z);
       this.clampToRoom(item);
+      this.settleVertical(item);
     }
     this.select(item);
     this.popIn(item);
@@ -489,7 +490,12 @@ export class RoomGame {
   }
 
   private itemTop(item: PlacedItem): number {
-    return item.group.position.y + (item.bbox.max.y - item.bbox.min.y) * item.group.scale.y;
+    return item.group.position.y + item.bbox.max.y * item.group.scale.y;
+  }
+
+  /** Group y that rests the item's geometry exactly on the given support height. */
+  private restY(item: PlacedItem, support: number): number {
+    return support - item.bbox.min.y * item.group.scale.y;
   }
 
   /**
@@ -530,10 +536,7 @@ export class RoomGame {
 
   /** Recompute the resting height of a floor item: floor, or the best supporting surface. */
   private settleVertical(item: PlacedItem): void {
-    if (item.def.wall || item.def.rug) {
-      if (item.def.rug) item.group.position.y = 0;
-      return;
-    }
+    if (item.def.wall) return;
     let y = 0;
     if (item.def.stackable) {
       const p = item.group.position;
@@ -546,7 +549,9 @@ export class RoomGame {
         }
       }
     }
-    item.group.position.y = y;
+    // Rest the actual geometry on the support: heals models whose lowest mesh
+    // doesn't start exactly at local y=0 (and old saves with a raised y).
+    item.group.position.y = this.restY(item, y);
   }
 
   private overlapsAny(item: PlacedItem, x: number, z: number): boolean {
@@ -664,7 +669,7 @@ export class RoomGame {
         for (const other of this.items) {
           if (other === item || !other.def.stackable) continue;
           const o = other.group.position;
-          if (Math.abs(o.y - top) < 0.04 && Math.abs(o.x - item.group.position.x) <= hw && Math.abs(o.z - item.group.position.z) <= hd) {
+          if (Math.abs(o.y - this.restY(other, top)) < 0.04 && Math.abs(o.x - item.group.position.x) <= hw && Math.abs(o.z - item.group.position.z) <= hd) {
             this.riders.push({ item: other, dx: o.x - item.group.position.x, dz: o.z - item.group.position.z });
           }
         }
@@ -702,7 +707,11 @@ export class RoomGame {
       if (item.def.stackable) {
         const support = this.surfaceHitAtPointer(item);
         if (support) {
-          item.group.position.set(support.point.x, this.itemTop(support.item), support.point.z);
+          item.group.position.set(
+            support.point.x,
+            this.restY(item, this.itemTop(support.item)),
+            support.point.z
+          );
           this.moveRiders(item);
           return;
         }
@@ -722,7 +731,11 @@ export class RoomGame {
     if (this.riders.length === 0) return;
     const top = this.itemTop(item);
     for (const r of this.riders) {
-      r.item.group.position.set(item.group.position.x + r.dx, top, item.group.position.z + r.dz);
+      r.item.group.position.set(
+        item.group.position.x + r.dx,
+        this.restY(r.item, top),
+        item.group.position.z + r.dz
+      );
     }
   }
 
@@ -1228,6 +1241,11 @@ export class RoomGame {
       if (def.colors.includes(s.color) || /^#[0-9a-f]{6}$/i.test(s.color)) {
         this.recolorItemDirect(item, s.color);
       }
+    }
+    // Re-ground every floor item once all supports exist: heals raised y values
+    // from older saves and models whose geometry doesn't start at local y=0.
+    for (const item of this.items) {
+      if (!item.def.wall) this.settleVertical(item);
     }
     this.setMood((saved.mood as MoodName) in MOODS ? (saved.mood as MoodName) : 'day');
     this.onItemsChange(this.items.length);
