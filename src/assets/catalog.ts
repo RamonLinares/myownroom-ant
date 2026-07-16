@@ -2004,6 +2004,156 @@ function makeBalconyDoors(color: string): THREE.Group {
   return g;
 }
 
+/** Painted view through the open balcony door: sky, hills, railing, deck. */
+function balconyViewTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 192;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+  const grad = ctx.createLinearGradient(0, 0, 0, 160);
+  grad.addColorStop(0, '#aee0f5');
+  grad.addColorStop(0.8, '#f5e2b8');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 192, 160);
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  for (const [cx, cy, r] of [[40, 38, 13], [58, 32, 16], [76, 40, 12], [140, 60, 11], [156, 64, 14]] as Array<[number, number, number]>) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#8fae72';
+  ctx.beginPath();
+  ctx.ellipse(50, 168, 90, 22, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(160, 172, 80, 26, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // deck
+  ctx.fillStyle = '#c9c2b4';
+  ctx.fillRect(0, 196, 192, 60);
+  ctx.strokeStyle = 'rgba(120,112,100,0.45)';
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.moveTo(96 + (i - 2) * 22, 196);
+    ctx.lineTo(96 + (i - 2) * 54, 256);
+    ctx.stroke();
+  }
+  // railing silhouette
+  ctx.fillStyle = '#6b655c';
+  ctx.fillRect(0, 118, 192, 9);
+  for (let x = 8; x < 192; x += 18) {
+    ctx.fillRect(x, 127, 5, 74);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** Balcony door: open French doors inside, real platform + railing outside the wall. */
+function makeBalcony(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const frameMat = matte('#f2ead9', 0.55);
+  const railMat = tint(matte(color, 0.6));
+  const w = 1.4, h = 2.05;
+  addCasing(g, w, h, frameMat, 0.08, 0.07);
+  const floorY = -h / 2 - 0.08;
+
+  // View plate just behind the doorway: what you see through the opening.
+  const viewTex = balconyViewTexture();
+  const plate = new THREE.Mesh(
+    new THREE.PlaneGeometry(w - 0.04, h + 0.04),
+    new THREE.MeshStandardMaterial({ map: viewTex, emissive: '#ffffff', emissiveMap: viewTex, emissiveIntensity: 0.42, roughness: 0.6 })
+  );
+  plate.position.set(0, -0.02, -0.02);
+  g.add(plate);
+
+  const leafW = w / 2 - 0.02;
+  const buildLeaf = (): THREE.Group => {
+    const leaf = new THREE.Group();
+    const glass = glassPane(leafW - 0.16, h - 0.2);
+    glass.position.set(leafW / 2, 0, 0);
+    leaf.add(glass);
+    for (const sy of [-1, 1]) {
+      const rail = box(leafW, 0.1, 0.045, frameMat);
+      rail.position.set(leafW / 2, sy * (h / 2 - 0.05), 0.005);
+      leaf.add(rail);
+    }
+    for (const sx of [0.04, leafW - 0.04]) {
+      const stile = box(0.08, h, 0.045, frameMat);
+      stile.position.set(sx, 0, 0.005);
+      leaf.add(stile);
+    }
+    for (let i = 1; i < 3; i++) {
+      const bar = box(leafW - 0.14, 0.035, 0.04, frameMat);
+      bar.position.set(leafW / 2, -h / 2 + (i * h) / 3, 0.012);
+      leaf.add(bar);
+    }
+    return leaf;
+  };
+  // Left leaf swung open into the room; right leaf closed.
+  const openLeaf = buildLeaf();
+  openLeaf.position.set(-w / 2 + 0.02, 0, 0.045);
+  openLeaf.rotation.y = -0.85;
+  g.add(openLeaf);
+  const closedLeaf = buildLeaf();
+  closedLeaf.rotation.y = Math.PI;
+  closedLeaf.position.set(w / 2 - 0.02, 0, 0.055);
+  g.add(closedLeaf);
+  const handle = cyl(0.012, 0.012, 0.14, metal(METAL_GREY), 10);
+  handle.position.set(0.09, -0.05, 0.09);
+  g.add(handle);
+
+  // ---- the balcony itself, outside the wall ----
+  const platW = w + 0.55, platD = 0.95;
+  const platTop = floorY + 0.16;
+  const slab = box(platW, 0.16, platD, matte('#d8d4cc', 0.7));
+  slab.position.set(0, floorY + 0.08, -0.09 - platD / 2);
+  g.add(slab);
+  const fascia = box(platW - 0.04, 0.05, platD - 0.04, matte('#b8b2a6', 0.7));
+  fascia.position.set(0, floorY + 0.026, -0.09 - platD / 2);
+  g.add(fascia);
+
+  const railH = 0.95;
+  const addRailRun = (x0: number, z0: number, x1: number, z1: number): void => {
+    const len = Math.hypot(x1 - x0, z1 - z0);
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    const rotY = Math.atan2(x1 - x0, z1 - z0) + Math.PI / 2;
+    const top = box(len, 0.05, 0.05, railMat);
+    top.position.set(cx, platTop + railH, cz);
+    top.rotation.y = rotY;
+    g.add(top);
+    const bottom = box(len, 0.035, 0.035, railMat);
+    bottom.position.set(cx, platTop + 0.09, cz);
+    bottom.rotation.y = rotY;
+    g.add(bottom);
+    const n = Math.max(2, Math.round(len / 0.15));
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      const bal = cyl(0.012, 0.012, railH - 0.1, railMat, 6);
+      bal.position.set(x0 + (x1 - x0) * t, platTop + railH / 2, z0 + (z1 - z0) * t);
+      g.add(bal);
+    }
+  };
+  const zOut = -0.09 - platD + 0.05;
+  const xEdge = platW / 2 - 0.05;
+  addRailRun(-xEdge, zOut, xEdge, zOut);
+  addRailRun(-xEdge, -0.12, -xEdge, zOut);
+  addRailRun(xEdge, -0.12, xEdge, zOut);
+
+  // Corner planters with little bushes.
+  for (const side of [-1, 1]) {
+    const pot = box(0.16, 0.14, 0.16, matte('#c96f4a', 0.7));
+    pot.position.set(side * (xEdge - 0.14), platTop + 0.07, zOut + 0.15);
+    g.add(pot);
+    const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(0.1, 1), matte('#4c8a52', 0.75));
+    bush.position.set(side * (xEdge - 0.14), platTop + 0.2, zOut + 0.15);
+    g.add(bush);
+  }
+  shadow(g);
+  return g;
+}
+
 // ---------------------------------------------------------------- registry
 
 const WOODS = ['#b98a5e', '#6b4a2f', '#e0d4bd', '#3d3f45'];
@@ -2089,6 +2239,7 @@ export const CATALOG: ItemDef[] = [
   { id: 'window', name: 'Sunny Window', cat: 'Wall', colors: ['#e8e0d0', '#b98a5e', '#6b4a2f'], make: makeSunnyWindow, wall: true },
   { id: 'door', name: 'Cottage Door', cat: 'Wall', colors: ['#b98a5e', '#6b4a2f', '#7d9471', '#5e7a94'], make: makeCottageDoor, wall: true, floorWall: true },
   { id: 'balcony-doors', name: 'Balcony Doors', cat: 'Wall', colors: ['#f2e3c2', '#e8b0c8', '#a8c0cc'], make: makeBalconyDoors, wall: true, floorWall: true },
+  { id: 'balcony', name: 'Door to Balcony', cat: 'Wall', colors: ['#f2ead9', '#3d3f45', '#7d9471'], make: makeBalcony, wall: true, floorWall: true },
   { id: 'frame', name: 'Sunset Print', cat: 'Wall', colors: ['#6b4a2f', '#e0d4bd', '#3d3f45'], make: makePictureFrame, wall: true },
   { id: 'frame-trio', name: 'Picture-frame Trio', cat: 'Wall', colors: WOODS, make: makeFrameTrio, wall: true },
   { id: 'clock', name: 'Wall Clock', cat: 'Wall', colors: ['#6b4a2f', '#b98a5e', '#3d3f45'], make: makeWallClock, wall: true },
