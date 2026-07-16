@@ -1496,6 +1496,59 @@ export class RoomGame {
     });
   }
 
+  // ------------------------------------------------------------- design insights
+
+  /** Gentle, judgment-free observations about the current arrangement. */
+  getInsights(): string[] {
+    const out: string[] = [];
+    const lampIds = new Set(['floor-lamp', 'table-lamp', 'paper-lantern', 'candles', 'lava-lamp', 'softbox', 'fairy-lights']);
+    const lamps = this.items.filter((i) => lampIds.has(i.def.id));
+    if (lamps.length === 0) {
+      out.push('No lamps yet — the room will feel gloomy after sunset.');
+    } else {
+      let worst = 0;
+      for (const r of this.rects) {
+        for (const [cx, cz] of [[r.x0, r.z0], [r.x1, r.z0], [r.x0, r.z1], [r.x1, r.z1]] as Array<[number, number]>) {
+          const d = Math.min(...lamps.map((l) => Math.hypot(l.group.position.x - cx, l.group.position.z - cz)));
+          worst = Math.max(worst, d);
+        }
+      }
+      if (worst > 3.6) out.push('One corner sits far from any light — a lamp there would warm it up.');
+    }
+    const hasSeat = this.items.some((i) => ['sofa', 'corner-sofa', 'armchair', 'rocking-chair'].includes(i.def.id));
+    if (hasSeat && !this.items.some((i) => i.def.rug)) {
+      out.push('A rug under the seating would tie the space together.');
+    }
+    if (!this.items.some((i) => i.def.wall && !RoomGame.DOORS.has(i.def.id))) {
+      out.push('The walls are bare — art, a clock, or shelves add character.');
+    }
+    const floorArea = this.rects.reduce((a, r) => a + (r.x1 - r.x0) * (r.z1 - r.z0), 0);
+    const solid = this.items.filter((i) => !i.def.wall && !i.def.rug && !i.def.stackable);
+    const used = solid.reduce((a, i) => {
+      const { hw, hd } = this.footprintHalf(i);
+      return a + hw * hd * 4;
+    }, 0);
+    if (floorArea > 0 && used / floorArea > 0.42) {
+      out.push('It’s getting crowded — walking space is tight. A bigger room shape could help.');
+    } else {
+      const larges = solid.filter((i) => this.footprintRadius(i) > 0.5);
+      outer: for (let a = 0; a < larges.length; a++) {
+        for (let b = a + 1; b < larges.length; b++) {
+          const A = larges[a], B = larges[b];
+          const gap =
+            Math.hypot(A.group.position.x - B.group.position.x, A.group.position.z - B.group.position.z) -
+            this.footprintRadius(A) - this.footprintRadius(B);
+          if (gap > 0 && gap < 0.3) {
+            out.push(`Tight squeeze between the ${A.def.name.toLowerCase()} and the ${B.def.name.toLowerCase()}.`);
+            break outer;
+          }
+        }
+      }
+    }
+    if (out.length === 0) out.push('Looking great — nicely lit and comfortably spaced. 🌿');
+    return out.slice(0, 4);
+  }
+
   // ------------------------------------------------------------- style recipes
 
   /** Applies a style recipe and returns a snapshot from before, for undo. */

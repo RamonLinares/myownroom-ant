@@ -145,6 +145,10 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         <nav class="cat-tabs finish-tabs" id="floor-styles"></nav>
         <div class="swatches" id="floor-colors"></div>
       </div>
+      <div class="finish-block">
+        <button class="pill-btn" id="btn-insights">💡 Design insights</button>
+        <ul class="insights hidden" id="insights-list"></ul>
+      </div>
       <div class="insp-actions">
         <button class="pill-btn" id="btn-present">🎬 Present</button>
         <button class="pill-btn" id="btn-clip">🎥 8s clip</button>
@@ -155,6 +159,19 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
       </div>
       <input type="file" id="room-file" accept=".json,application/json" hidden />
     </section>
+
+    <aside class="guide hidden" id="guide">
+      <div class="guide-head">
+        <h4>First steps</h4>
+        <button class="icon-btn small" id="guide-skip" title="Dismiss">✕</button>
+      </div>
+      <ol>
+        <li id="guide-shape">Pick a room shape in 🏠</li>
+        <li id="guide-items">Add 3 things you like</li>
+        <li id="guide-mood">Try a lighting mood</li>
+        <li id="guide-photo">Take a photo</li>
+      </ol>
+    </aside>
 
     <footer class="hintbar" id="hintbar">Tap an item in the catalog to add it · drag furniture to arrange your room</footer>
     <div class="toast" id="toast"><span id="toast-text"></span><button class="toast-btn hidden" id="toast-btn"></button></div>
@@ -698,6 +715,23 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   };
   renderRooms();
 
+  // ----- design insights -----
+  const insightsList = $('insights-list');
+  $('btn-insights').addEventListener('click', () => {
+    if (!insightsList.classList.contains('hidden')) {
+      insightsList.classList.add('hidden');
+      return;
+    }
+    insightsList.innerHTML = '';
+    for (const text of game.getInsights()) {
+      const li = document.createElement('li');
+      li.textContent = text;
+      insightsList.appendChild(li);
+    }
+    insightsList.classList.remove('hidden');
+    audio.click();
+  });
+
   // ----- save / load room files -----
   const roomFile = $<HTMLInputElement>('room-file');
   $('btn-save-room').addEventListener('click', () => {
@@ -847,6 +881,44 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
       showToast('Room emptied — a fresh start!');
     }
   });
+
+  // ----- guided first-room checklist -----
+  const GUIDE_KEY = 'myownroom-ant-guide-done';
+  if (!localStorage.getItem(GUIDE_KEY)) {
+    const guide = $('guide');
+    guide.classList.remove('hidden');
+    const done = { shape: false, items: false, mood: false, photo: false };
+    let adds = 0;
+    let prevCount = game.items.length;
+    const mark = (step: keyof typeof done): void => {
+      if (done[step]) return;
+      done[step] = true;
+      $(`guide-${step}`).classList.add('done');
+      if (Object.values(done).every(Boolean)) {
+        localStorage.setItem(GUIDE_KEY, '1');
+        window.setTimeout(() => {
+          guide.classList.add('hidden');
+          showToast('You’ve got the hang of it — the room is yours! 🎉');
+        }, 900);
+      }
+    };
+    $('guide-skip').addEventListener('click', () => {
+      localStorage.setItem(GUIDE_KEY, '1');
+      guide.classList.add('hidden');
+    });
+    $('room-shapes').addEventListener('click', () => mark('shape'));
+    moodBtn.addEventListener('click', () => mark('mood'));
+    $('btn-photo').addEventListener('click', () => mark('photo'));
+    const chained = game.onItemsChange;
+    game.onItemsChange = (count) => {
+      chained(count);
+      if (count > prevCount) {
+        adds += count - prevCount;
+        if (adds >= 3) mark('items');
+      }
+      prevCount = count;
+    };
+  }
 
   // ----- keyboard -----
   window.addEventListener('keydown', (e) => {
