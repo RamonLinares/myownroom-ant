@@ -13,6 +13,8 @@ export interface SavedRoom {
   mood: string;
   title?: string;
   locked?: boolean;
+  /** Imported GLB models (base64) referenced by item defs. */
+  assets?: Record<string, { name: string; data: string }>;
   room?: {
     w: number;
     d: number;

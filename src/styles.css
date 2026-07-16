@@ -112,6 +112,15 @@ canvas.game-canvas {
   box-shadow: var(--shadow);
   backdrop-filter: blur(8px);
   transition: transform 0.12s ease, background 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn svg {
+  width: 21px;
+  height: 21px;
+  flex-shrink: 0;
 }
 
 .icon-btn:hover { background: var(--panel-soft); transform: translateY(-1px); }
@@ -250,6 +259,11 @@ canvas.game-canvas {
   font-weight: 600;
   text-align: center;
   line-height: 1.2;
+}
+
+.glb-btn {
+  margin: 0 12px 12px;
+  flex-shrink: 0;
 }
 
 .fab {

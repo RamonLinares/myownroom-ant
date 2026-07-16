@@ -6,7 +6,26 @@ import { thumbnail } from './thumbs';
 import { audio } from '../core/audio';
 
 const MOOD_CYCLE: MoodName[] = ['day', 'sunset', 'night'];
-const MOOD_ICON: Record<MoodName, string> = { day: '☀️', sunset: '🌇', night: '🌙' };
+
+const svg = (inner: string): string =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+
+const ICONS = {
+  lock: svg('<rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>'),
+  lockOpen: svg('<rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 7.8-1.2"/>'),
+  home: svg('<path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5h4v5"/>'),
+  walk: svg('<circle cx="13" cy="4.2" r="1.8"/><path d="M13 6.5l-1.2 5.2 2.8 3.3 1.2 4.8"/><path d="M11.8 11.7l-2.6 2.9-1.8 4.2"/><path d="M12.4 8.6l-3.2 1.2-1 3"/><path d="M13.4 9.4l2.6 1.6 2.2.4"/>'),
+  door: svg('<rect x="6" y="3.5" width="12" height="17" rx="1"/><circle cx="15" cy="12.5" r="1.1" fill="currentColor" stroke="none"/>'),
+  camera: svg('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8.5 7l1.4-2.5h4.2L15.5 7"/><circle cx="12" cy="13" r="3.6"/>'),
+  sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>'),
+  sunset: svg('<path d="M7 15a5 5 0 0 1 10 0"/><path d="M3 15h2M19 15h2M12 5v3M6.3 8.3l1.4 1.4M17.7 8.3l-1.4 1.4"/><path d="M4 19h16"/>'),
+  moon: svg('<path d="M20 13.5A8 8 0 1 1 10.5 4a6.5 6.5 0 0 0 9.5 9.5z"/>'),
+  sound: svg('<path d="M4 9.5v5h3l5 4.5v-14L7 9.5H4z"/><path d="M15.5 9.2a4.5 4.5 0 0 1 0 5.6M18 6.5a8 8 0 0 1 0 11"/>'),
+  muted: svg('<path d="M4 9.5v5h3l5 4.5v-14L7 9.5H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>'),
+  trash: svg('<path d="M4 7h16M9.5 7V4.5h5V7"/><path d="M6 7l1 13.5h10L18 7"/><path d="M10 10.5v6M14 10.5v6"/>'),
+};
+
+const MOOD_ICON: Record<MoodName, string> = { day: ICONS.sun, sunset: ICONS.sunset, night: ICONS.moon };
 
 export function buildUI(root: HTMLElement, game: RoomGame): void {
   root.insertAdjacentHTML(
@@ -19,13 +38,13 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         <span class="count-badge" id="item-count">0</span>
       </div>
       <div class="topbar-actions">
-        <button class="icon-btn" id="btn-lock" title="Lock the room">🔓</button>
-        <button class="icon-btn" id="btn-room" title="Room size & shape">🏠</button>
-        <button class="icon-btn" id="btn-walk" title="Walk around your room">👣</button>
-        <button class="icon-btn" id="btn-photo" title="Take a photo">📷</button>
-        <button class="icon-btn" id="btn-mood" title="Lighting mood">☀️</button>
-        <button class="icon-btn" id="btn-mute" title="Sound on/off">🔊</button>
-        <button class="icon-btn danger" id="btn-clear" title="Empty the room">🗑</button>
+        <button class="icon-btn" id="btn-lock" title="Lock the room"></button>
+        <button class="icon-btn" id="btn-room" title="Room size & shape"></button>
+        <button class="icon-btn" id="btn-walk" title="Walk around your room"></button>
+        <button class="icon-btn" id="btn-photo" title="Take a photo"></button>
+        <button class="icon-btn" id="btn-mood" title="Lighting mood"></button>
+        <button class="icon-btn" id="btn-mute" title="Sound on/off"></button>
+        <button class="icon-btn danger" id="btn-clear" title="Empty the room"></button>
       </div>
     </header>
 
@@ -37,6 +56,8 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
       <input type="search" class="cat-search" id="cat-search" placeholder="Search all items…" autocomplete="off" />
       <nav class="cat-tabs" id="cat-tabs"></nav>
       <div class="cat-grid" id="cat-grid"></div>
+      <button class="pill-btn glb-btn" id="btn-import-glb">⬆ Import 3D model (.glb)</button>
+      <input type="file" id="glb-file" accept=".glb,.gltf,model/gltf-binary" hidden />
     </aside>
     <button class="fab" id="btn-open-catalog" title="Open catalog">＋</button>
 
@@ -125,6 +146,10 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   );
 
   const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+  $('btn-room').innerHTML = ICONS.home;
+  $('btn-walk').innerHTML = ICONS.walk;
+  $('btn-photo').innerHTML = ICONS.camera;
+  $('btn-clear').innerHTML = ICONS.trash;
   const catalogEl = $('catalog');
   const grid = $('cat-grid');
   const tabs = $('cat-tabs');
@@ -203,6 +228,21 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
 
   $('btn-close-catalog').addEventListener('click', () => catalogEl.classList.add('collapsed'));
   $('btn-open-catalog').addEventListener('click', () => catalogEl.classList.remove('collapsed'));
+
+  const glbFile = $<HTMLInputElement>('glb-file');
+  $('btn-import-glb').addEventListener('click', () => glbFile.click());
+  glbFile.addEventListener('change', () => {
+    const file = glbFile.files?.[0];
+    glbFile.value = '';
+    if (!file) return;
+    showToast('Loading model…');
+    void game.importGlbFile(file).then((ok) => {
+      if (ok) {
+        showToast(`${file.name} added to the room`);
+        if (window.innerWidth < 720) catalogEl.classList.add('collapsed');
+      }
+    });
+  });
   // Defer the initial collapse decision: the viewport may not have its real size yet at load.
   requestAnimationFrame(() => {
     if (window.innerWidth > 0 && window.innerWidth < 720) catalogEl.classList.add('collapsed');
@@ -270,6 +310,8 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
     // Wall items cannot rotate freely (they follow their wall) but can flip.
     $('btn-rot-l').style.display = item.def.wall ? 'none' : '';
     $('btn-rot-r').style.display = item.def.wall ? 'none' : '';
+    // Imported models have no tintable parts: hide the color row entirely.
+    ($('insp-swatches').parentElement as HTMLElement).style.display = item.def.colors.length ? '' : 'none';
     renderSwatches(item);
     renderMats(item);
   };
@@ -289,7 +331,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   const lockBtn = $('btn-lock');
   const syncLock = (): void => {
     const locked = game.isLocked();
-    lockBtn.textContent = locked ? '🔒' : '🔓';
+    lockBtn.innerHTML = locked ? ICONS.lock : ICONS.lockOpen;
     lockBtn.title = locked ? 'Unlock the room' : 'Lock the room';
     lockBtn.classList.toggle('active', locked);
     document.body.classList.toggle('locked', locked);
@@ -338,15 +380,15 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   moodBtn.addEventListener('click', () => {
     const next = MOOD_CYCLE[(MOOD_CYCLE.indexOf(game.getMood()) + 1) % MOOD_CYCLE.length];
     game.setMood(next);
-    moodBtn.textContent = MOOD_ICON[next];
+    moodBtn.innerHTML = MOOD_ICON[next];
     audio.click();
     showToast(`Mood: ${next}`);
   });
-  moodBtn.textContent = MOOD_ICON[game.getMood()];
+  moodBtn.innerHTML = MOOD_ICON[game.getMood()];
 
   const muteBtn = $('btn-mute');
   const syncMute = (): void => {
-    muteBtn.textContent = audio.muted ? '🔇' : '🔊';
+    muteBtn.innerHTML = audio.muted ? ICONS.muted : ICONS.sound;
   };
   muteBtn.addEventListener('click', () => {
     audio.setMuted(!audio.muted);
@@ -486,7 +528,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
       }
       if (!window.confirm('Replace your current room with the loaded file?')) return;
       if (game.importRoom(data)) {
-        moodBtn.textContent = MOOD_ICON[game.getMood()];
+        moodBtn.innerHTML = MOOD_ICON[game.getMood()];
         syncRoomUI();
         syncWallRow();
         syncFloorRow();
@@ -506,7 +548,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   game.onModeChange = (mode) => {
     document.body.classList.toggle('walk-mode', mode === 'walk');
     walkBtn.classList.toggle('active', mode === 'walk');
-    walkBtn.textContent = mode === 'walk' ? '🚪' : '👣';
+    walkBtn.innerHTML = mode === 'walk' ? ICONS.door : ICONS.walk;
     walkBtn.title = mode === 'walk' ? 'Exit walk mode' : 'Walk around your room';
     if (mode === 'walk') catalogEl.classList.add('collapsed');
   };

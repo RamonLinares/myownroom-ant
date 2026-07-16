@@ -102,6 +102,9 @@ export class RoomGame {
   private moveOrigin = { x: 0, y: 0 };
   private moveVec = { x: 0, y: 0 };
   private savedCam: { pos: THREE.Vector3; target: THREE.Vector3; fov: number } | null = null;
+  private customDefs = new Map<string, ItemDef>();
+  private glbData = new Map<string, { name: string; data: string }>();
+  private pendingGlbItems: SavedItem[] = [];
   private roomCfg: RoomConfig = { ...DEFAULT_ROOM };
   private rects: Rect[] = [];
   private wallSegs: WallSeg[] = [];
@@ -314,13 +317,93 @@ export class RoomGame {
     return item;
   }
 
+  private resolveDef(id: string): ItemDef | undefined {
+    return this.customDefs.get(id) ?? getDef(id);
+  }
+
+  // ------------------------------------------------------------- glb import
+
+  /** Imports a .glb/.gltf file as a new placeable object and adds it to the room. */
+  async importGlbFile(file: File): Promise<boolean> {
+    if (this.locked) {
+      this.onToast('Unlock the room to add items');
+      audio.error();
+      return false;
+    }
+    if (file.size > 6 * 1024 * 1024) {
+      this.onToast('Model too large — 6 MB max');
+      audio.error();
+      return false;
+    }
+    const buf = await file.arrayBuffer();
+    const assetId = `glb-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`;
+    const name = file.name.replace(/\.(glb|gltf)$/i, '').replace(/[-_]/g, ' ').trim().slice(0, 24) || '3D Model';
+    try {
+      await this.registerGlbAsset(assetId, name, bufToBase64(buf));
+    } catch {
+      this.onToast('Could not read that model file');
+      audio.error();
+      return false;
+    }
+    if (file.size > 2.5 * 1024 * 1024) {
+      this.onToast('Large model — if auto-save fails, keep a Save-room file');
+    }
+    this.addItem(assetId);
+    return true;
+  }
+
+  /** Parses a stored GLB and registers a catalog def that clones it. */
+  private async registerGlbAsset(assetId: string, name: string, base64: string): Promise<void> {
+    if (this.customDefs.has(assetId)) return;
+    const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+    const gltf = await new GLTFLoader().parseAsync(base64ToBuf(base64), '');
+    const template = gltf.scene;
+    const box = new THREE.Box3().setFromObject(template);
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    // Normalize wildly out-of-scale models into believable furniture sizes.
+    let s = 1;
+    if (maxDim > 2.6) s = 2.6 / maxDim;
+    else if (maxDim < 0.15) s = 0.6 / maxDim;
+    const center = box.getCenter(new THREE.Vector3());
+    const offset = new THREE.Vector3(-center.x * s, -box.min.y * s, -center.z * s);
+    const small = Math.max(size.x * s, size.z * s) < 0.55 && size.y * s < 0.6;
+    this.glbData.set(assetId, { name, data: base64 });
+    this.customDefs.set(assetId, {
+      id: assetId,
+      name,
+      cat: 'Decor',
+      colors: [],
+      stackable: small,
+      make: () => {
+        const g = new THREE.Group();
+        const inst = template.clone(true);
+        inst.scale.setScalar(s);
+        inst.position.copy(offset);
+        inst.traverse((c) => {
+          if ((c as THREE.Mesh).isMesh) {
+            c.castShadow = true;
+            c.receiveShadow = true;
+          }
+        });
+        g.add(inst);
+        return g;
+      },
+    });
+  }
+
+  /** Imported models share geometry with their template: never dispose those. */
+  private disposeItem(item: PlacedItem): void {
+    if (!this.customDefs.has(item.def.id)) disposeGroup(item.group);
+  }
+
   addItem(defId: string): void {
     if (this.locked) {
       this.onToast('Unlock the room to add items');
       audio.error();
       return;
     }
-    const def = getDef(defId);
+    const def = this.resolveDef(defId);
     if (!def) return;
     const item = this.buildItem(def, def.colors[0]);
     if (def.wall) {
@@ -357,7 +440,7 @@ export class RoomGame {
       },
       done: () => {
         this.scene.remove(item.group);
-        disposeGroup(item.group);
+        this.disposeItem(item);
       },
     });
     audio.remove();
@@ -467,7 +550,7 @@ export class RoomGame {
     this.select(null);
     for (const item of this.items) {
       this.scene.remove(item.group);
-      disposeGroup(item.group);
+      this.disposeItem(item);
     }
     this.items.length = 0;
     clearSaved();
@@ -1359,7 +1442,26 @@ export class RoomGame {
       color: i.color,
       mat: i.material && i.material !== (i.def.materials?.[0] ?? null) ? i.material : undefined,
     }));
-    return { version: 1, mood: this.mood, title: this.title, locked: this.locked || undefined, room: { ...this.roomCfg }, items };
+    // Imported models still waiting on their GLB parse must not vanish from saves.
+    items.push(...this.pendingGlbItems);
+    const assets: Record<string, { name: string; data: string }> = {};
+    let hasAssets = false;
+    for (const it of items) {
+      const a = this.glbData.get(it.def);
+      if (a) {
+        assets[it.def] = a;
+        hasAssets = true;
+      }
+    }
+    return {
+      version: 1,
+      mood: this.mood,
+      title: this.title,
+      locked: this.locked || undefined,
+      room: { ...this.roomCfg },
+      assets: hasAssets ? assets : undefined,
+      items,
+    };
   }
 
   private persist(): void {
@@ -1379,9 +1481,10 @@ export class RoomGame {
     this.select(null);
     for (const item of this.items) {
       this.scene.remove(item.group);
-      disposeGroup(item.group);
+      this.disposeItem(item);
     }
     this.items.length = 0;
+    this.pendingGlbItems = [];
     this.applySaved(saved);
     this.persist();
     return true;
@@ -1414,24 +1517,20 @@ export class RoomGame {
       if (/^#[0-9a-f]{6}$/i.test(r.floorColor ?? '')) cfg.floorColor = r.floorColor as string;
     }
     this.applyRoom(cfg);
+    // Imported GLB assets parse asynchronously; their items join when ready.
+    const assets = saved.assets ?? {};
+    const pending = new Set<string>();
+    for (const [id, a] of Object.entries(assets)) {
+      if (!a || typeof a.data !== 'string') continue;
+      this.glbData.set(id, { name: String(a.name ?? '3D Model'), data: a.data });
+      if (!this.customDefs.has(id)) pending.add(id);
+    }
     for (const s of saved.items) {
-      const def = getDef(s.def);
-      if (!def) continue;
-      const item = this.buildItem(def, s.color);
-      item.group.position.set(s.pos[0], s.pos[1], s.pos[2]);
-      item.group.rotation.y = s.rot;
-      // Older saves stored a signed scale; normalize to magnitude + flip flag.
-      const mag = Math.abs(s.scale) || 1;
-      item.group.scale.set(s.flip || s.scale < 0 ? -mag : mag, mag, mag);
-      // Floor-anchored wall items re-derive their height so model tweaks
-      // (or older saves) can never leave them floating.
-      if (def.floorWall) item.group.position.y = -item.bbox.min.y * s.scale;
-      if (def.colors.includes(s.color) || /^#[0-9a-f]{6}$/i.test(s.color)) {
-        this.recolorItemDirect(item, s.color);
+      if (pending.has(s.def)) {
+        this.pendingGlbItems.push(s);
+        continue;
       }
-      if (typeof s.mat === 'string' && def.materials?.includes(s.mat as MaterialKind)) {
-        this.applyMaterialToItem(item, s.mat as MaterialKind);
-      }
+      this.buildSavedItem(s);
     }
     // Re-ground every floor item once all supports exist: heals raised y values
     // from older saves and models whose geometry doesn't start at local y=0.
@@ -1440,6 +1539,45 @@ export class RoomGame {
     }
     this.setMood((saved.mood as MoodName) in MOODS ? (saved.mood as MoodName) : 'day');
     this.onItemsChange(this.items.length);
+    for (const id of pending) {
+      const a = this.glbData.get(id);
+      if (!a) continue;
+      void this.registerGlbAsset(id, a.name, a.data)
+        .then(() => {
+          const specs = this.pendingGlbItems.filter((s) => s.def === id);
+          this.pendingGlbItems = this.pendingGlbItems.filter((s) => s.def !== id);
+          for (const s of specs) {
+            const item = this.buildSavedItem(s);
+            if (item && !item.def.wall) this.settleVertical(item);
+          }
+          this.onItemsChange(this.items.length);
+        })
+        .catch(() => {
+          this.pendingGlbItems = this.pendingGlbItems.filter((s) => s.def !== id);
+          this.onToast(`Couldn't load 3D model “${a.name}”`);
+        });
+    }
+  }
+
+  private buildSavedItem(s: SavedItem): PlacedItem | null {
+    const def = this.resolveDef(s.def);
+    if (!def) return null;
+    const item = this.buildItem(def, s.color);
+    item.group.position.set(s.pos[0], s.pos[1], s.pos[2]);
+    item.group.rotation.y = s.rot;
+    // Older saves stored a signed scale; normalize to magnitude + flip flag.
+    const mag = Math.abs(s.scale) || 1;
+    item.group.scale.set(s.flip || s.scale < 0 ? -mag : mag, mag, mag);
+    // Floor-anchored wall items re-derive their height so model tweaks
+    // (or older saves) can never leave them floating.
+    if (def.floorWall) item.group.position.y = -item.bbox.min.y * mag;
+    if (def.colors.includes(s.color) || /^#[0-9a-f]{6}$/i.test(s.color)) {
+      this.recolorItemDirect(item, s.color);
+    }
+    if (typeof s.mat === 'string' && def.materials?.includes(s.mat as MaterialKind)) {
+      this.applyMaterialToItem(item, s.mat as MaterialKind);
+    }
+    return item;
   }
 
   private recolorItemDirect(item: PlacedItem, color: string): void {
@@ -1487,6 +1625,22 @@ export class RoomGame {
     this.onItemsChange(this.items.length);
     this.persist();
   }
+}
+
+function bufToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(bin);
+}
+
+function base64ToBuf(b64: string): ArrayBuffer {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
 }
 
 function disposeGroup(group: THREE.Group): void {
