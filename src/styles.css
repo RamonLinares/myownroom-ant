@@ -41,6 +41,8 @@ canvas.game-canvas {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
   pointer-events: none;
   z-index: 20;
 }
@@ -97,6 +99,8 @@ canvas.game-canvas {
 .topbar-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   pointer-events: auto;
 }
 
