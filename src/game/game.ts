@@ -9,7 +9,8 @@ import {
   WALL_FINISHES, FLOOR_FINISHES, applyMaterialKind,
   type WallFinish, type FloorFinish, type MaterialKind,
 } from '../assets/materials';
-import { loadRoom, saveRoom, clearSaved, type SavedItem, type SavedRoom } from './state';
+import { loadRoom, loadHome, saveHome, type SavedItem, type SavedRoom, type HomeState } from './state';
+import type { StyleRecipe } from './styles';
 import { audio } from '../core/audio';
 
 export interface PlacedItem {
@@ -19,6 +20,10 @@ export interface PlacedItem {
   color: string;
   /** Current finish of the tinted parts; null when the item has no options. */
   material: MaterialKind | null;
+  /** Room id this door leads to, when walked through. */
+  link: string | null;
+  /** Custom uploaded image (data URL), when applied. */
+  img: string | null;
   /** Local-space bounding box at scale 1, cached on build. */
   bbox: THREE.Box3;
 }
@@ -310,7 +315,10 @@ export class RoomGame {
   private buildItem(def: ItemDef, color: string): PlacedItem {
     const group = def.make(color);
     const bbox = new THREE.Box3().setFromObject(group);
-    const item: PlacedItem = { uid: this.uidCounter++, def, group, color, material: def.materials?.[0] ?? null, bbox };
+    const item: PlacedItem = {
+      uid: this.uidCounter++, def, group, color,
+      material: def.materials?.[0] ?? null, link: null, img: null, bbox,
+    };
     group.userData.item = item;
     this.scene.add(group);
     this.items.push(item);
@@ -553,7 +561,8 @@ export class RoomGame {
       this.disposeItem(item);
     }
     this.items.length = 0;
-    clearSaved();
+    this.pendingGlbItems = [];
+    this.persist();
     this.onItemsChange(0);
   }
 
@@ -1247,6 +1256,8 @@ export class RoomGame {
 
   // ------------------------------------------------------------- interactions
 
+  static readonly DOORS = new Set(['door', 'modern-door', 'barn-door', 'arched-door', 'dutch-door', 'balcony-doors', 'balcony']);
+
   private static readonly POWERED = new Set([
     'floor-lamp', 'table-lamp', 'paper-lantern', 'candles', 'lava-lamp', 'softbox',
     'fairy-lights', 'dollhouse', 'air-purifier', 'wall-ac', 'desktop',
@@ -1292,9 +1303,16 @@ export class RoomGame {
       this.rock(item);
       return;
     }
-    if (id === 'door' || id === 'balcony-doors') {
-      audio.knock();
-      this.onToast('Knock knock…');
+    if (RoomGame.DOORS.has(id)) {
+      if (item.link && this.home.rooms.some((r) => r.id === item.link)) {
+        const title = this.home.rooms.find((r) => r.id === item.link)?.data.title || 'the next room';
+        audio.creak();
+        this.onToast(`Through the door → ${title}`);
+        this.switchRoom(item.link);
+      } else {
+        audio.knock();
+        this.onToast('Knock knock…');
+      }
       return;
     }
     audio.click();
@@ -1385,6 +1403,83 @@ export class RoomGame {
     return url;
   }
 
+  /** Same capture without the shutter feedback (for automatic "before" shots). */
+  photoSilent(): string {
+    this.renderer.render(this.scene, this.camera);
+    return this.canvas.toDataURL('image/jpeg', 0.85);
+  }
+
+  // ------------------------------------------------------------- style recipes
+
+  /** Applies a style recipe and returns a snapshot from before, for undo. */
+  applyStyle(style: StyleRecipe): SavedRoom {
+    const before = this.exportRoom();
+    this.setRoomConfig({
+      ...this.roomCfg,
+      wallStyle: style.wallStyle,
+      wallColor: style.wallColor,
+      floorStyle: style.floorStyle,
+      floorColor: style.floorColor,
+    });
+    this.setMood(style.mood);
+    let k = 0;
+    for (const item of this.items) {
+      if (!item.def.colors.length || item.img) continue;
+      this.recolorItemDirect(item, style.palette[k++ % style.palette.length]);
+    }
+    this.scheduleSave();
+    audio.place();
+    return before;
+  }
+
+  // ------------------------------------------------------------- custom images
+
+  /** Items whose look can be replaced by an uploaded picture. */
+  static readonly IMAGEABLE = new Set(['frame', 'frame-trio', 'round-rug', 'rect-rug', 'cushion']);
+
+  applyCustomImage(item: PlacedItem, dataUrl: string): void {
+    const tex = new THREE.TextureLoader().load(dataUrl);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    item.img = dataUrl;
+    const arts: THREE.MeshStandardMaterial[] = [];
+    const tints: THREE.MeshStandardMaterial[] = [];
+    item.group.traverse((c) => {
+      if (c instanceof THREE.Mesh) {
+        const m = c.material as THREE.MeshStandardMaterial;
+        if (!m.isMeshStandardMaterial) return;
+        if (m.userData.art) arts.push(m);
+        else if (m.userData.tint) tints.push(m);
+      }
+    });
+    // Frames carry a dedicated art surface; rugs and cushions use their tinted fabric.
+    for (const m of arts.length ? arts : tints) {
+      m.map = tex;
+      m.color.set('#ffffff');
+      m.needsUpdate = true;
+    }
+    this.scheduleSave();
+  }
+
+  /** Removes a custom image by rebuilding the item's model from its factory. */
+  clearCustomImage(item: PlacedItem): void {
+    if (!item.img) return;
+    const fresh = item.def.make(item.color);
+    fresh.position.copy(item.group.position);
+    fresh.rotation.copy(item.group.rotation);
+    fresh.scale.copy(item.group.scale);
+    fresh.userData.item = item;
+    this.scene.remove(item.group);
+    this.disposeItem(item);
+    item.group = fresh;
+    item.img = null;
+    this.scene.add(fresh);
+    if (item.material && item.material !== (item.def.materials?.[0] ?? null)) {
+      this.applyMaterialToItem(item, item.material);
+    }
+    this.recolorItemDirect(item, item.color);
+    this.scheduleSave();
+  }
+
   // ------------------------------------------------------------- moods
 
   setMood(name: MoodName): void {
@@ -1441,6 +1536,8 @@ export class RoomGame {
       flip: i.group.scale.x < 0 || undefined,
       color: i.color,
       mat: i.material && i.material !== (i.def.materials?.[0] ?? null) ? i.material : undefined,
+      link: i.link ?? undefined,
+      img: i.img ?? undefined,
     }));
     // Imported models still waiting on their GLB parse must not vanish from saves.
     items.push(...this.pendingGlbItems);
@@ -1465,7 +1562,80 @@ export class RoomGame {
   }
 
   private persist(): void {
-    saveRoom(this.snapshot());
+    const room = this.home.rooms.find((r) => r.id === this.home.activeId);
+    if (room) room.data = this.snapshot();
+    saveHome(this.home);
+  }
+
+  // ------------------------------------------------------------- rooms (home)
+
+  listRooms(): Array<{ id: string; title: string }> {
+    return this.home.rooms.map((r) => ({ id: r.id, title: r.data.title?.trim() || 'Room' }));
+  }
+
+  getActiveRoomId(): string {
+    return this.home.activeId;
+  }
+
+  /** Saves the current room and loads another one from the home. */
+  switchRoom(id: string): boolean {
+    if (id === this.home.activeId) return false;
+    const target = this.home.rooms.find((r) => r.id === id);
+    if (!target) return false;
+    const wasWalking = this.mode === 'walk';
+    if (wasWalking) this.exitWalk();
+    this.persist();
+    this.select(null);
+    for (const item of this.items) {
+      this.scene.remove(item.group);
+      this.disposeItem(item);
+    }
+    this.items.length = 0;
+    this.pendingGlbItems = [];
+    this.home.activeId = id;
+    this.applySaved(target.data);
+    saveHome(this.home);
+    if (wasWalking) this.enterWalk();
+    return true;
+  }
+
+  createRoom(): string {
+    this.persist();
+    const id = `room-${Date.now().toString(36)}`;
+    const n = this.home.rooms.length + 1;
+    this.home.rooms.push({
+      id,
+      data: { version: 1, mood: 'day', title: `Room ${n}`, room: { ...DEFAULT_ROOM }, items: [] },
+    });
+    this.switchRoom(id);
+    return id;
+  }
+
+  deleteRoom(id: string): boolean {
+    if (this.home.rooms.length < 2) return false;
+    const idx = this.home.rooms.findIndex((r) => r.id === id);
+    if (idx < 0) return false;
+    if (id === this.home.activeId) {
+      const next = this.home.rooms[(idx + 1) % this.home.rooms.length];
+      this.switchRoom(next.id);
+    }
+    this.home.rooms = this.home.rooms.filter((r) => r.id !== id);
+    // Unlink any doors that led to the deleted room.
+    for (const item of this.items) if (item.link === id) item.link = null;
+    for (const r of this.home.rooms) {
+      for (const s of r.data.items) if (s.link === id) delete s.link;
+    }
+    saveHome(this.home);
+    return true;
+  }
+
+  /** Points the selected door at another room (or nowhere). */
+  setLinkSelected(roomId: string | null): void {
+    const item = this.selected;
+    if (!item) return;
+    item.link = roomId;
+    audio.click();
+    this.scheduleSave();
   }
 
   /** The current room as a serializable object (same shape as the auto-save). */
@@ -1490,15 +1660,35 @@ export class RoomGame {
     return true;
   }
 
+  private home: HomeState = { version: 1, activeId: 'room-1', rooms: [] };
+
   private restore(): void {
-    const saved = loadRoom();
-    if (!saved || saved.items.length === 0) {
+    const home = loadHome();
+    if (home) {
+      this.home = home;
+      const room = home.rooms.find((r) => r.id === home.activeId) ?? home.rooms[0];
+      this.home.activeId = room.id;
+      this.applySaved(room.data);
+      return;
+    }
+    // Migrate the old single-room save (or start fresh).
+    const legacy = loadRoom();
+    this.home = {
+      version: 1,
+      activeId: 'room-1',
+      rooms: [{
+        id: 'room-1',
+        data: legacy ?? { version: 1, mood: 'day', title: 'My Own Room', room: { ...DEFAULT_ROOM }, items: [] },
+      }],
+    };
+    if (!legacy || legacy.items.length === 0) {
       this.applyRoom({ ...DEFAULT_ROOM });
       this.starterRoom();
       this.setMood('day');
       return;
     }
-    this.applySaved(saved);
+    this.applySaved(legacy);
+    this.persist();
   }
 
   /** Rebuilds room shell and items from a save; assumes the item list is empty. */
@@ -1576,6 +1766,10 @@ export class RoomGame {
     }
     if (typeof s.mat === 'string' && def.materials?.includes(s.mat as MaterialKind)) {
       this.applyMaterialToItem(item, s.mat as MaterialKind);
+    }
+    if (typeof s.link === 'string') item.link = s.link;
+    if (typeof s.img === 'string' && s.img.startsWith('data:image')) {
+      this.applyCustomImage(item, s.img);
     }
     return item;
   }

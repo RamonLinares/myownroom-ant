@@ -468,6 +468,36 @@ input[type='range'] {
   transform: translate(-50%, 0);
 }
 
+.toast.actionable { pointer-events: auto; }
+
+.toast-btn {
+  margin-left: 10px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(30, 26, 22, 0.85);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+.toast-btn.hidden { display: none; }
+
+.insp-select {
+  flex: 1;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--ink);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 6px 8px;
+  outline: none;
+}
+
+.insp-select option { background: #2c2620; }
+
 /* ---------- room panel ---------- */
 .room-panel {
   position: absolute;

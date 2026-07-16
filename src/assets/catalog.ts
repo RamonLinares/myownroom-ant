@@ -491,7 +491,9 @@ function makePictureFrame(color: string): THREE.Group {
   }
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const art = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.62), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }));
+  const artMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 });
+  artMat.userData.art = true;
+  const art = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.62), artMat);
   art.position.z = 0.021;
   g.add(art);
   shadow(g);
@@ -1521,7 +1523,9 @@ function makeFrameTrio(color: string): THREE.Group {
     ctx.fill();
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
-    const art = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.06, h - 0.06), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }));
+    const artMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 });
+    artMat.userData.art = true;
+    const art = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.06, h - 0.06), artMat);
     art.position.set(x, y, 0.016);
     g.add(art);
   }

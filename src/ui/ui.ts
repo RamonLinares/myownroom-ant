@@ -1,6 +1,7 @@
 import { CATALOG, CATEGORIES, type Category } from '../assets/catalog';
-import type { PlacedItem, RoomGame, MoodName } from '../game/game';
+import { RoomGame, type PlacedItem, type MoodName } from '../game/game';
 import { WALL_COLORS, FLOOR_COLORS, type RoomShape } from '../game/room';
+import { STYLE_RECIPES } from '../game/styles';
 import { WALL_FINISHES, FLOOR_FINISHES, type WallFinish, type FloorFinish } from '../assets/materials';
 import { thumbnail } from './thumbs';
 import { audio } from '../core/audio';
@@ -86,6 +87,18 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         <span class="insp-label">Finish</span>
         <nav class="cat-tabs finish-tabs" id="insp-mats"></nav>
       </div>
+      <div class="insp-row" id="insp-link-row">
+        <span class="insp-label">Leads to</span>
+        <select id="insp-link" class="insp-select"></select>
+      </div>
+      <div class="insp-row" id="insp-img-row">
+        <span class="insp-label">Picture</span>
+        <div class="btn-pair">
+          <button class="pill-btn" id="btn-item-img">🖼 Upload</button>
+          <button class="pill-btn hidden" id="btn-item-img-clear">✕</button>
+        </div>
+        <input type="file" id="item-img-file" accept="image/*" hidden />
+      </div>
       <div class="insp-actions">
         <button class="pill-btn" id="btn-duplicate">⧉ Duplicate</button>
         <button class="pill-btn danger" id="btn-delete">🗑 Remove</button>
@@ -115,6 +128,14 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         <input type="range" id="room-d" min="5" max="12" step="0.5" />
       </div>
       <div class="finish-block">
+        <span class="insp-label">Style recipes</span>
+        <nav class="cat-tabs finish-tabs" id="style-chips"></nav>
+      </div>
+      <div class="finish-block">
+        <span class="insp-label">Rooms in this home</span>
+        <nav class="cat-tabs finish-tabs" id="rooms-list"></nav>
+      </div>
+      <div class="finish-block">
         <span class="insp-label">Walls</span>
         <nav class="cat-tabs finish-tabs" id="wall-styles"></nav>
         <div class="swatches" id="wall-colors"></div>
@@ -132,7 +153,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
     </section>
 
     <footer class="hintbar" id="hintbar">Tap an item in the catalog to add it · drag furniture to arrange your room</footer>
-    <div class="toast" id="toast"></div>
+    <div class="toast" id="toast"><span id="toast-text"></span><button class="toast-btn hidden" id="toast-btn"></button></div>
     <div class="flash" id="flash"></div>
     <div class="joystick hidden" id="joystick"><div class="joy-thumb" id="joy-thumb"></div></div>
     <section class="photo-card hidden" id="photo-card">
@@ -161,11 +182,22 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   let activeCat: Category = 'Seating';
   let toastTimer = 0;
 
-  const showToast = (text: string): void => {
-    toast.textContent = text;
+  const toastBtn = $<HTMLButtonElement>('toast-btn');
+  let toastAction: (() => void) | null = null;
+  toastBtn.addEventListener('click', () => {
+    toastAction?.();
+    toastAction = null;
+    toast.classList.remove('show');
+  });
+  const showToast = (text: string, action?: { label: string; fn: () => void }): void => {
+    $('toast-text').textContent = text;
+    toastAction = action?.fn ?? null;
+    toastBtn.textContent = action?.label ?? '';
+    toastBtn.classList.toggle('hidden', !action);
+    toast.classList.toggle('actionable', !!action);
     toast.classList.add('show');
     window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => toast.classList.remove('show'), 1900);
+    toastTimer = window.setTimeout(() => toast.classList.remove('show'), action ? 6000 : 1900);
   };
 
   // ----- catalog -----
@@ -314,7 +346,81 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
     ($('insp-swatches').parentElement as HTMLElement).style.display = item.def.colors.length ? '' : 'none';
     renderSwatches(item);
     renderMats(item);
+    renderLinkRow(item);
+    renderImgRow(item);
   };
+
+  // Doors can lead to other rooms of the home (walk through them in walk mode).
+  const linkRow = $('insp-link-row');
+  const linkSelect = $<HTMLSelectElement>('insp-link');
+  const renderLinkRow = (item: PlacedItem): void => {
+    const isDoor = RoomGame.DOORS.has(item.def.id);
+    const others = game.listRooms().filter((r) => r.id !== game.getActiveRoomId());
+    linkRow.style.display = isDoor && others.length ? '' : 'none';
+    if (linkRow.style.display === 'none') return;
+    linkSelect.innerHTML = '';
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = 'Nowhere';
+    linkSelect.appendChild(none);
+    for (const r of others) {
+      const opt = document.createElement('option');
+      opt.value = r.id;
+      opt.textContent = r.title;
+      linkSelect.appendChild(opt);
+    }
+    linkSelect.value = item.link ?? '';
+  };
+  linkSelect.addEventListener('change', () => {
+    game.setLinkSelected(linkSelect.value || null);
+    showToast(linkSelect.value ? 'Walk up to this door in walk mode to go through' : 'Door unlinked');
+  });
+
+  // Custom pictures for frames, rugs and cushions.
+  const imgRow = $('insp-img-row');
+  const imgFile = $<HTMLInputElement>('item-img-file');
+  const imgClearBtn = $('btn-item-img-clear');
+  const renderImgRow = (item: PlacedItem): void => {
+    const ok = RoomGame.IMAGEABLE.has(item.def.id);
+    imgRow.style.display = ok ? '' : 'none';
+    imgClearBtn.classList.toggle('hidden', !item.img);
+  };
+  $('btn-item-img').addEventListener('click', () => imgFile.click());
+  imgClearBtn.addEventListener('click', () => {
+    if (game.selected) {
+      game.clearCustomImage(game.selected);
+      renderImgRow(game.selected);
+      showToast('Back to the original artwork');
+    }
+  });
+  imgFile.addEventListener('change', () => {
+    const file = imgFile.files?.[0];
+    imgFile.value = '';
+    const item = game.selected;
+    if (!file || !item) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = new Image();
+      src.onload = () => {
+        // Downscale to a safe resolution and re-encode compactly.
+        const max = 512;
+        const scale = Math.min(1, max / Math.max(src.width, src.height));
+        const cw = Math.max(1, Math.round(src.width * scale));
+        const ch = Math.max(1, Math.round(src.height * scale));
+        const cnv = document.createElement('canvas');
+        cnv.width = cw;
+        cnv.height = ch;
+        cnv.getContext('2d')!.drawImage(src, 0, 0, cw, ch);
+        game.applyCustomImage(item, cnv.toDataURL('image/jpeg', 0.82));
+        renderImgRow(item);
+        showToast('Picture applied');
+        audio.place();
+      };
+      src.onerror = () => showToast('Could not read that image');
+      src.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
 
   game.onItemsChange = (count) => {
     $('item-count').textContent = String(count);
@@ -500,6 +606,86 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   syncFloorRow();
   syncRoomUI();
 
+  // ----- style recipes -----
+  let beforeShot: string | null = null;
+  const styleChips = $('style-chips');
+  for (const style of STYLE_RECIPES) {
+    const chip = document.createElement('button');
+    chip.className = 'cat-tab';
+    chip.textContent = style.name;
+    chip.addEventListener('click', () => {
+      beforeShot = game.photoSilent();
+      const before = game.applyStyle(style);
+      syncAll();
+      showToast(`${style.name} applied`, {
+        label: 'Undo',
+        fn: () => {
+          game.importRoom(before);
+          syncAll();
+          showToast('Style undone');
+        },
+      });
+    });
+    styleChips.appendChild(chip);
+  }
+
+  // ----- rooms in this home -----
+  const roomsList = $('rooms-list');
+  const renderRooms = (): void => {
+    roomsList.innerHTML = '';
+    const active = game.getActiveRoomId();
+    for (const r of game.listRooms()) {
+      const chip = document.createElement('button');
+      chip.className = 'cat-tab' + (r.id === active ? ' active' : '');
+      chip.textContent = r.title;
+      chip.addEventListener('click', () => {
+        if (game.switchRoom(r.id)) {
+          syncAll();
+          showToast(`Now in “${r.title}”`);
+          audio.click();
+        }
+      });
+      roomsList.appendChild(chip);
+    }
+    const add = document.createElement('button');
+    add.className = 'cat-tab';
+    add.textContent = '＋ New';
+    add.addEventListener('click', () => {
+      game.createRoom();
+      syncAll();
+      showToast('New room — link a door to walk between them');
+      audio.place();
+    });
+    roomsList.appendChild(add);
+    if (game.listRooms().length > 1) {
+      const del = document.createElement('button');
+      del.className = 'cat-tab';
+      del.textContent = '🗑';
+      del.title = 'Delete this room';
+      del.addEventListener('click', () => {
+        if (window.confirm('Delete this room and everything in it?')) {
+          game.deleteRoom(game.getActiveRoomId());
+          syncAll();
+          showToast('Room deleted');
+        }
+      });
+      roomsList.appendChild(del);
+    }
+  };
+
+  /** Refreshes every panel that mirrors game state (after switch/load/style). */
+  const syncAll = (): void => {
+    moodBtn.innerHTML = MOOD_ICON[game.getMood()];
+    syncTitle();
+    syncLock();
+    syncRoomUI();
+    syncWallRow();
+    syncFloorRow();
+    renderRooms();
+    $('item-count').textContent = String(game.items.length);
+  };
+  renderRooms();
+
   // ----- save / load room files -----
   const roomFile = $<HTMLInputElement>('room-file');
   $('btn-save-room').addEventListener('click', () => {
@@ -528,12 +714,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
       }
       if (!window.confirm('Replace your current room with the loaded file?')) return;
       if (game.importRoom(data)) {
-        moodBtn.innerHTML = MOOD_ICON[game.getMood()];
-        syncRoomUI();
-        syncWallRow();
-        syncFloorRow();
-        syncTitle();
-        syncLock();
+        syncAll();
         showToast('Room loaded!');
         audio.place();
       } else {
