@@ -56,7 +56,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
       <input type="search" class="cat-search" id="cat-search" placeholder="Search all items…" autocomplete="off" />
       <nav class="cat-tabs" id="cat-tabs"></nav>
       <div class="cat-grid" id="cat-grid"></div>
-      <button class="pill-btn glb-btn" id="btn-import-glb">⬆ Import 3D model (.glb)</button>
+      <button class="glb-btn" id="btn-import-glb">＋ Import .glb model</button>
       <input type="file" id="glb-file" accept=".glb,.gltf,model/gltf-binary" hidden />
     </aside>
     <button class="fab" id="btn-open-catalog" title="Open catalog">＋</button>

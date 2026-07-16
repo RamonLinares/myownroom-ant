@@ -261,9 +261,24 @@ canvas.game-canvas {
   line-height: 1.2;
 }
 
-.glb-btn {
-  margin: 0 12px 12px;
+.catalog .glb-btn {
+  margin: 2px 12px 10px;
   flex-shrink: 0;
+  padding: 5px 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: none;
+  color: var(--ink-dim);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.catalog .glb-btn:hover {
+  color: var(--ink);
+  border-color: var(--accent);
 }
 
 .fab {
