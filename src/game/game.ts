@@ -5,7 +5,10 @@ import {
   buildRoomShell, roomRects, roomWalls, DEFAULT_ROOM, ROOM_H, ROOM_SHAPES,
   type RoomConfig, type RoomShape, type Rect, type WallSeg,
 } from './room';
-import { WALL_FINISHES, FLOOR_FINISHES, type WallFinish, type FloorFinish } from '../assets/materials';
+import {
+  WALL_FINISHES, FLOOR_FINISHES, applyMaterialKind,
+  type WallFinish, type FloorFinish, type MaterialKind,
+} from '../assets/materials';
 import { loadRoom, saveRoom, clearSaved, type SavedItem, type SavedRoom } from './state';
 import { audio } from '../core/audio';
 
@@ -14,6 +17,8 @@ export interface PlacedItem {
   def: ItemDef;
   group: THREE.Group;
   color: string;
+  /** Current finish of the tinted parts; null when the item has no options. */
+  material: MaterialKind | null;
   /** Local-space bounding box at scale 1, cached on build. */
   bbox: THREE.Box3;
 }
@@ -298,7 +303,7 @@ export class RoomGame {
   private buildItem(def: ItemDef, color: string): PlacedItem {
     const group = def.make(color);
     const bbox = new THREE.Box3().setFromObject(group);
-    const item: PlacedItem = { uid: this.uidCounter++, def, group, color, bbox };
+    const item: PlacedItem = { uid: this.uidCounter++, def, group, color, material: def.materials?.[0] ?? null, bbox };
     group.userData.item = item;
     this.scene.add(group);
     this.items.push(item);
@@ -357,6 +362,7 @@ export class RoomGame {
     const copy = this.buildItem(src.def, src.color);
     copy.group.rotation.y = src.group.rotation.y;
     copy.group.scale.copy(src.group.scale);
+    if (src.material && src.material !== copy.material) this.applyMaterialToItem(copy, src.material);
     if (src.def.wall) {
       const spot = this.findWallSpot(copy);
       copy.group.position.copy(spot.pos);
@@ -408,6 +414,25 @@ export class RoomGame {
     }
     audio.click();
     this.scheduleSave();
+  }
+
+  /** Re-dresses the selected item's tinted parts in another finish. */
+  setMaterialSelected(kind: MaterialKind): void {
+    const item = this.selected;
+    if (!item || !item.def.materials?.includes(kind)) return;
+    this.applyMaterialToItem(item, kind);
+    audio.click();
+    this.scheduleSave();
+  }
+
+  private applyMaterialToItem(item: PlacedItem, kind: MaterialKind): void {
+    item.material = kind;
+    item.group.traverse((c) => {
+      if (c instanceof THREE.Mesh) {
+        const mat = c.material as THREE.MeshStandardMaterial;
+        if (mat.userData?.tint) applyMaterialKind(mat, kind);
+      }
+    });
   }
 
   recolorSelected(color: string, silent = false): void {
@@ -1221,6 +1246,7 @@ export class RoomGame {
       scale: Math.abs(i.group.scale.x),
       flip: i.group.scale.x < 0 || undefined,
       color: i.color,
+      mat: i.material && i.material !== (i.def.materials?.[0] ?? null) ? i.material : undefined,
     }));
     return { version: 1, mood: this.mood, title: this.title, room: { ...this.roomCfg }, items };
   }
@@ -1290,6 +1316,9 @@ export class RoomGame {
       if (def.floorWall) item.group.position.y = -item.bbox.min.y * s.scale;
       if (def.colors.includes(s.color) || /^#[0-9a-f]{6}$/i.test(s.color)) {
         this.recolorItemDirect(item, s.color);
+      }
+      if (typeof s.mat === 'string' && def.materials?.includes(s.mat as MaterialKind)) {
+        this.applyMaterialToItem(item, s.mat as MaterialKind);
       }
     }
     // Re-ground every floor item once all supports exist: heals raised y values

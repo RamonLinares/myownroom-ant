@@ -80,6 +80,61 @@ export const wallTexture = makeTexture(256, (ctx, s) => {
   }
 });
 
+/** Soft leather: pore speckle and faint creases, tinted through material.color. */
+export const leatherTexture = makeTexture(256, (ctx, s) => {
+  ctx.fillStyle = '#d8d8d8';
+  ctx.fillRect(0, 0, s, s);
+  for (let i = 0; i < 4200; i++) {
+    const v = 185 + rand() * 55 | 0;
+    ctx.fillStyle = `rgba(${v},${v},${v},0.45)`;
+    ctx.beginPath();
+    ctx.arc(rand() * s, rand() * s, 0.8 + rand() * 1.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(140,140,140,0.35)';
+  ctx.lineWidth = 0.7;
+  for (let i = 0; i < 26; i++) {
+    const x = rand() * s, y = rand() * s;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.quadraticCurveTo(x + (rand() - 0.5) * 60, y + (rand() - 0.5) * 60, x + (rand() - 0.5) * 110, y + (rand() - 0.5) * 110);
+    ctx.stroke();
+  }
+});
+
+export type MaterialKind = 'fabric' | 'leather' | 'wood' | 'plain' | 'metal';
+
+/** Re-dresses a tintable material as another finish; color stays untouched. */
+export function applyMaterialKind(m: THREE.MeshStandardMaterial, kind: MaterialKind): void {
+  switch (kind) {
+    case 'wood':
+      m.map = woodTexture;
+      m.roughness = 0.62;
+      m.metalness = 0.02;
+      break;
+    case 'fabric':
+      m.map = fabricTexture;
+      m.roughness = 0.94;
+      m.metalness = 0;
+      break;
+    case 'leather':
+      m.map = leatherTexture;
+      m.roughness = 0.5;
+      m.metalness = 0.04;
+      break;
+    case 'metal':
+      m.map = null;
+      m.roughness = 0.35;
+      m.metalness = 0.8;
+      break;
+    default:
+      m.map = null;
+      m.roughness = 0.85;
+      m.metalness = 0.03;
+  }
+  m.needsUpdate = true;
+}
+
 export const rugTexture = makeTexture(256, (ctx, s) => {
   ctx.fillStyle = '#d6d6d6';
   ctx.fillRect(0, 0, s, s);

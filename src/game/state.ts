@@ -5,6 +5,7 @@ export interface SavedItem {
   scale: number;
   flip?: boolean;
   color: string;
+  mat?: string;
 }
 
 export interface SavedRoom {

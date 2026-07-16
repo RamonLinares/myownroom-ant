@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { wood, fabric, matte, metal, rugTexture, fabricTexture } from './materials';
+import { wood, fabric, matte, metal, rugTexture, fabricTexture, type MaterialKind } from './materials';
 
 export type Category =
   | 'Seating' | 'Beds' | 'Tables' | 'Storage' | 'Workspace'
@@ -22,6 +22,12 @@ export interface ItemDef {
   stackable?: boolean;
   /** Flat floor covering: ignores stacking entirely. */
   rug?: boolean;
+  /**
+   * Finishes the tinted parts may wear; the first entry must match how the
+   * factory builds the item. Omitted for items whose tinted materials are
+   * too special to swap (rugs, glowing parts, sheer curtains…).
+   */
+  materials?: MaterialKind[];
 }
 
 function shadow(o: THREE.Object3D): void {
@@ -2071,6 +2077,34 @@ export const CATALOG: ItemDef[] = [
 export const CATEGORIES: Category[] = [
   'Seating', 'Beds', 'Tables', 'Storage', 'Workspace', 'Decor', 'Toys', 'Lighting', 'Plants', 'Rugs', 'Wall',
 ];
+
+// Finish options per item; the first entry matches the factory's native look.
+{
+  const assign = (ids: string[], mats: MaterialKind[]): void => {
+    for (const id of ids) {
+      const def = CATALOG.find((d) => d.id === id);
+      if (def) def.materials = mats;
+    }
+  };
+  assign(
+    ['sofa', 'corner-sofa', 'armchair', 'ottoman', 'cushion', 'bed', 'canopy-bed', 'desk-chair', 'ergo-chair', 'teddy', 'basket'],
+    ['fabric', 'leather', 'plain']
+  );
+  assign(
+    ['chair', 'rocking-chair', 'desk', 'dining-table', 'coffee-table', 'side-table', 'nightstand',
+     'bookshelf', 'low-bookcase', 'cube-storage', 'wardrobe', 'dresser', 'toybox', 'billy', 'billy-oxberg',
+     'standing-desk', 'record-player', 'music-box', 'mantel-clock', 'standing-mirror', 'wall-shelf',
+     'clock', 'frame', 'frame-trio', 'door', 'speakers', 'snow-globe', 'window'],
+    ['wood', 'plain', 'metal']
+  );
+  assign(
+    ['plant', 'small-plant', 'fern', 'mushroom-pot', 'floor-lamp', 'table-lamp', 'candles', 'radio',
+     'train', 'camera', 'dollhouse', 'desktop', 'keyboard', 'printer', 'rolling-drawers', 'radiator',
+     'wall-ac', 'monitor', 'ultrawide', 'vase'],
+    ['plain', 'wood', 'metal']
+  );
+  assign(['filing-cabinet', 'laptop', 'globe'], ['metal', 'plain', 'wood']);
+}
 
 export function getDef(id: string): ItemDef | undefined {
   return CATALOG.find((d) => d.id === id);

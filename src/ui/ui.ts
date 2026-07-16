@@ -60,6 +60,10 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         <span class="insp-label">Color</span>
         <div class="swatches" id="insp-swatches"></div>
       </div>
+      <div class="insp-row" id="insp-mat-row">
+        <span class="insp-label">Finish</span>
+        <nav class="cat-tabs finish-tabs" id="insp-mats"></nav>
+      </div>
       <div class="insp-actions">
         <button class="pill-btn" id="btn-duplicate">⧉ Duplicate</button>
         <button class="pill-btn danger" id="btn-delete">🗑 Remove</button>
@@ -233,6 +237,27 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
     wrap.appendChild(picker);
   };
 
+  const MAT_LABELS: Record<string, string> = {
+    fabric: 'Fabric', leather: 'Leather', wood: 'Wood', plain: 'Plain', metal: 'Metal',
+  };
+  const renderMats = (item: PlacedItem): void => {
+    const row = $('insp-mat-row');
+    const host = $('insp-mats');
+    const mats = item.def.materials ?? [];
+    row.style.display = mats.length > 1 ? '' : 'none';
+    host.innerHTML = '';
+    for (const kind of mats) {
+      const b = document.createElement('button');
+      b.className = 'cat-tab' + (kind === item.material ? ' active' : '');
+      b.textContent = MAT_LABELS[kind] ?? kind;
+      b.addEventListener('click', () => {
+        game.setMaterialSelected(kind);
+        renderMats(item);
+      });
+      host.appendChild(b);
+    }
+  };
+
   game.onSelectionChange = (item) => {
     if (!item) {
       inspector.classList.add('hidden');
@@ -245,6 +270,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
     $('btn-rot-l').style.display = item.def.wall ? 'none' : '';
     $('btn-rot-r').style.display = item.def.wall ? 'none' : '';
     renderSwatches(item);
+    renderMats(item);
   };
 
   game.onItemsChange = (count) => {
