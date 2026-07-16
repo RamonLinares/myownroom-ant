@@ -62,7 +62,17 @@ canvas.game-canvas {
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 46vw;
+  outline: none;
+  border-radius: 6px;
+  cursor: text;
 }
+
+.brand h1:hover { background: rgba(255, 255, 255, 0.08); }
+.brand h1:focus { background: rgba(255, 255, 255, 0.12); box-shadow: 0 0 0 2px var(--accent-soft); }
 
 .brand-dot {
   width: 10px;
@@ -590,6 +600,22 @@ body.walk-mode .inspector {
 
 /* ---------- responsive ---------- */
 @media (max-width: 720px) {
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .brand {
+    max-width: calc(100vw - 24px);
+  }
+
+  .brand h1 { max-width: 62vw; }
+
+  .topbar-actions {
+    flex-wrap: wrap;
+  }
+
   .catalog {
     top: auto;
     left: 8px;

@@ -81,6 +81,7 @@ export class RoomGame {
   private saveTimer: number | undefined;
   private clock = new THREE.Clock();
   private mode: GameMode = 'edit';
+  private title = 'My Own Room';
   private walkYaw = 0;
   private walkPitch = 0;
   private walkKeys = new Set<string>();
@@ -957,7 +958,7 @@ export class RoomGame {
   private onWalkKey = (e: KeyboardEvent): void => {
     if (this.mode !== 'walk') return;
     const target = e.target as HTMLElement;
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
     const key = e.key.toLowerCase();
     if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
       if (e.type === 'keydown') this.walkKeys.add(key);
@@ -1202,6 +1203,16 @@ export class RoomGame {
     this.saveTimer = window.setTimeout(() => this.persist(), 350);
   }
 
+  getTitle(): string {
+    return this.title;
+  }
+
+  setTitle(title: string): void {
+    const clean = title.replace(/\s+/g, ' ').trim().slice(0, 40);
+    this.title = clean || 'My Own Room';
+    this.scheduleSave();
+  }
+
   private snapshot(): SavedRoom {
     const items: SavedItem[] = this.items.map((i) => ({
       def: i.def.id,
@@ -1211,7 +1222,7 @@ export class RoomGame {
       flip: i.group.scale.x < 0 || undefined,
       color: i.color,
     }));
-    return { version: 1, mood: this.mood, room: { ...this.roomCfg }, items };
+    return { version: 1, mood: this.mood, title: this.title, room: { ...this.roomCfg }, items };
   }
 
   private persist(): void {
@@ -1252,6 +1263,7 @@ export class RoomGame {
 
   /** Rebuilds room shell and items from a save; assumes the item list is empty. */
   private applySaved(saved: SavedRoom): void {
+    this.title = typeof saved.title === 'string' && saved.title.trim() ? saved.title.trim().slice(0, 40) : 'My Own Room';
     const cfg: RoomConfig = { ...DEFAULT_ROOM };
     const r = saved.room;
     if (r) {

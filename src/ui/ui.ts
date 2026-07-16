@@ -15,7 +15,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
     <header class="topbar">
       <div class="brand">
         <span class="brand-dot"></span>
-        <h1>My Own Room</h1>
+        <h1 id="room-title" contenteditable="true" spellcheck="false" title="Click to rename your room">My Own Room</h1>
         <span class="count-badge" id="item-count">0</span>
       </div>
       <div class="topbar-actions">
@@ -258,6 +258,24 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
 
   game.onToast = showToast;
 
+  // ----- room title -----
+  const titleEl = $('room-title');
+  const syncTitle = (): void => {
+    titleEl.textContent = game.getTitle();
+    document.title = game.getTitle();
+  };
+  syncTitle();
+  titleEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      titleEl.blur();
+    }
+  });
+  titleEl.addEventListener('blur', () => {
+    game.setTitle(titleEl.textContent ?? '');
+    syncTitle();
+  });
+
   $('btn-deselect').addEventListener('click', () => game.select(null));
   $('btn-rot-l').addEventListener('click', () => game.rotateSelected(-1));
   $('btn-rot-r').addEventListener('click', () => game.rotateSelected(1));
@@ -423,6 +441,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         syncRoomUI();
         syncWallRow();
         syncFloorRow();
+        syncTitle();
         showToast('Room loaded!');
         audio.place();
       } else {
@@ -486,7 +505,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   // ----- keyboard -----
   window.addEventListener('keydown', (e) => {
     const target = e.target as HTMLElement;
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
     if (game.getMode() === 'walk') {
       if (e.key === 'Escape') game.exitWalk();
       if (e.key.toLowerCase() === 'p') $('btn-photo').click();

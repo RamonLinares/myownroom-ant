@@ -10,6 +10,7 @@ export interface SavedItem {
 export interface SavedRoom {
   version: 1;
   mood: string;
+  title?: string;
   room?: {
     w: number;
     d: number;
