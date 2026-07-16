@@ -95,6 +95,8 @@ export class RoomGame {
   private lookPointer: number | null = null;
   private lookLast = { x: 0, y: 0 };
   private lookMoved = 0;
+  private lastTap = { t: 0, x: 0, y: 0 };
+  private tapDown = { x: 0, y: 0 };
   private movePointer: number | null = null;
   private moveOrigin = { x: 0, y: 0 };
   private moveVec = { x: 0, y: 0 };
@@ -156,6 +158,7 @@ export class RoomGame {
     canvas.addEventListener('pointermove', this.onPointerMove);
     canvas.addEventListener('pointerup', this.onPointerUp);
     canvas.addEventListener('pointercancel', this.onPointerUp);
+    canvas.addEventListener('dblclick', (e) => this.focusAt(e.clientX, e.clientY));
     window.addEventListener('keydown', this.onWalkKey);
     window.addEventListener('keyup', this.onWalkKey);
     window.addEventListener('blur', () => this.walkKeys.clear());
@@ -650,10 +653,75 @@ export class RoomGame {
   // ------------------------------------------------------------- pointer
 
   private setPointer(e: PointerEvent): void {
+    this.setPointerXY(e.clientX, e.clientY);
+  }
+
+  private setPointerXY(clientX: number, clientY: number): void {
     const rect = this.canvas.getBoundingClientRect();
-    this.pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    this.pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    this.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    this.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     this.raycaster.setFromCamera(this.pointer, this.camera);
+  }
+
+  // ------------------------------------------------------------- focus travel
+
+  /** Double-click/tap on open floor: recenter the orbit camera, or glide there in walk mode. */
+  private focusAt(clientX: number, clientY: number): boolean {
+    this.setPointerXY(clientX, clientY);
+    if (this.itemAtPointer()) return false;
+    const floors: THREE.Object3D[] = [];
+    this.roomGroup?.traverse((c) => {
+      if (c.name === 'floor') floors.push(c);
+    });
+    const hit = this.raycaster.intersectObjects(floors, false)[0];
+    if (!hit) return false;
+    const p = hit.point;
+    const ease = (k: number): number => k * k * (3 - 2 * k);
+    if (this.mode === 'walk') {
+      let tx = p.x, tz = p.z;
+      if (this.walkCollides(tx, tz)) {
+        // Aim for the nearest walkable spot on the way back toward the player.
+        const dir = new THREE.Vector3(this.camera.position.x - p.x, 0, this.camera.position.z - p.z);
+        if (dir.lengthSq() < 1e-6) return false;
+        dir.normalize();
+        let found = false;
+        for (let d = 0.25; d <= 2; d += 0.25) {
+          if (!this.walkCollides(p.x + dir.x * d, p.z + dir.z * d)) {
+            tx = p.x + dir.x * d;
+            tz = p.z + dir.z * d;
+            found = true;
+            break;
+          }
+        }
+        if (!found) return false;
+      }
+      const sx = this.camera.position.x, sz = this.camera.position.z;
+      this.tweens.push({
+        t: 0,
+        dur: 0.55,
+        step: (k) => {
+          const e2 = ease(k);
+          this.camera.position.x = sx + (tx - sx) * e2;
+          this.camera.position.z = sz + (tz - sz) * e2;
+          this.walkBob += 0.14;
+        },
+      });
+    } else {
+      const start = this.controls.target.clone();
+      const camStart = this.camera.position.clone();
+      const dx = p.x - start.x, dz = p.z - start.z;
+      this.tweens.push({
+        t: 0,
+        dur: 0.5,
+        step: (k) => {
+          const e2 = ease(k);
+          this.controls.target.set(start.x + dx * e2, start.y, start.z + dz * e2);
+          this.camera.position.set(camStart.x + dx * e2, camStart.y, camStart.z + dz * e2);
+        },
+      });
+    }
+    audio.click();
+    return true;
   }
 
   private itemAtPointer(): PlacedItem | null {
@@ -671,6 +739,7 @@ export class RoomGame {
 
   private onPointerDown = (e: PointerEvent): void => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
+    this.tapDown = { x: e.clientX, y: e.clientY };
     if (this.mode === 'walk') {
       this.onWalkPointerDown(e);
       return;
@@ -833,6 +902,16 @@ export class RoomGame {
       this.controls.enabled = true;
     } else if (!this.dragging) {
       this.controls.enabled = true;
+      // Touch double-tap on open floor recenters the camera (mice use dblclick).
+      if (e.pointerType === 'touch' && Math.hypot(e.clientX - this.tapDown.x, e.clientY - this.tapDown.y) < 12) {
+        const now = performance.now();
+        if (now - this.lastTap.t < 400 && Math.hypot(e.clientX - this.lastTap.x, e.clientY - this.lastTap.y) < 40) {
+          this.focusAt(e.clientX, e.clientY);
+          this.lastTap.t = 0;
+        } else {
+          this.lastTap = { t: now, x: e.clientX, y: e.clientY };
+        }
+      }
     }
   };
 
@@ -1040,8 +1119,18 @@ export class RoomGame {
     }
     if (e.pointerId === this.lookPointer) {
       this.lookPointer = null;
-      // A press that barely moved is a tap: poke whatever is in reach.
-      if (this.lookMoved < 10) this.walkTap(e);
+      // A press that barely moved is a tap: poke whatever is in reach, or
+      // glide across the room on a double-tap of open floor.
+      if (this.lookMoved < 10) {
+        const now = performance.now();
+        const isDouble = now - this.lastTap.t < 400 && Math.hypot(e.clientX - this.lastTap.x, e.clientY - this.lastTap.y) < 40;
+        if (isDouble && this.focusAt(e.clientX, e.clientY)) {
+          this.lastTap.t = 0;
+        } else {
+          this.walkTap(e);
+          this.lastTap = { t: now, x: e.clientX, y: e.clientY };
+        }
+      }
     }
     if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
   }
