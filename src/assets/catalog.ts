@@ -3,7 +3,7 @@ import { wood, fabric, matte, metal, rugTexture, fabricTexture, type MaterialKin
 
 export type Category =
   | 'Seating' | 'Beds' | 'Tables' | 'Storage' | 'Workspace'
-  | 'Decor' | 'Toys' | 'Lighting' | 'Plants' | 'Rugs' | 'Wall';
+  | 'Decor' | 'Toys' | 'Lighting' | 'Plants' | 'Rugs' | 'Wall' | 'Seasonal';
 
 export interface ItemDef {
   id: string;
@@ -2313,6 +2313,211 @@ function makeBalcony(color: string): THREE.Group {
   return g;
 }
 
+// ------------------------------------------------------ seasonal pack
+
+function makeBirthdayCake(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const plate = cyl(0.16, 0.17, 0.015, matte('#f2f0ec', 0.4), 22);
+  plate.position.y = 0.008;
+  g.add(plate);
+  const tier1 = cyl(0.13, 0.13, 0.09, tint(matte(color, 0.7)), 22);
+  tier1.position.y = 0.06;
+  g.add(tier1);
+  const tier2 = cyl(0.085, 0.085, 0.08, tint(matte(color, 0.7)), 20);
+  tier2.position.y = 0.145;
+  g.add(tier2);
+  for (const [r, y] of [[0.13, 0.105], [0.085, 0.185]] as Array<[number, number]>) {
+    const frosting = new THREE.Mesh(new THREE.TorusGeometry(r, 0.014, 8, 22), matte('#f6f1e6', 0.6));
+    frosting.rotation.x = Math.PI / 2;
+    frosting.position.y = y;
+    g.add(frosting);
+  }
+  const flameMat = new THREE.MeshStandardMaterial({ color: '#ffdf9e', emissive: '#ffb84a', emissiveIntensity: 2, roughness: 0.4 });
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2 + 0.4;
+    const candle = cyl(0.008, 0.008, 0.05, matte(['#e8b0c8', '#a8c0cc', '#c9e0a0'][i], 0.6), 8);
+    candle.position.set(Math.cos(a) * 0.045, 0.21, Math.sin(a) * 0.045);
+    g.add(candle);
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.008, 0.02, 6), flameMat);
+    flame.position.set(Math.cos(a) * 0.045, 0.245, Math.sin(a) * 0.045);
+    g.add(flame);
+  }
+  shadow(g);
+  return g;
+}
+
+function makeBalloons(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const weight = box(0.08, 0.05, 0.08, matte('#8f8c86', 0.6));
+  weight.position.y = 0.025;
+  g.add(weight);
+  const tones = [color, '#7ea8b8', '#c9a04a'];
+  for (const [i, [dx, dz, h]] of ([[-0.12, 0.03, 1.35], [0.02, -0.08, 1.5], [0.13, 0.06, 1.42]] as Array<[number, number, number]>).entries()) {
+    const string = cyl(0.003, 0.003, h, matte('#b8b2a6', 0.8), 5);
+    string.position.set(dx / 2, h / 2 + 0.04, dz / 2);
+    string.rotation.z = -dx * 0.12;
+    g.add(string);
+    const mat = i === 0 ? tint(matte(tones[i], 0.35)) : matte(tones[i], 0.35);
+    const balloon = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 12), mat);
+    balloon.scale.y = 1.18;
+    balloon.position.set(dx, h + 0.12, dz);
+    g.add(balloon);
+    const knot = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.03, 8), mat);
+    knot.rotation.x = Math.PI;
+    knot.position.set(dx, h - 0.03, dz);
+    g.add(knot);
+  }
+  shadow(g);
+  return g;
+}
+
+function makeBunting(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const span = 1.7, sag = 0.18;
+  const string = matte('#8f8577', 0.8);
+  const tones = [color, '#7ea8b8', '#c9a04a', '#7d9471'];
+  let prev: THREE.Vector3 | null = null;
+  for (let i = 0; i <= 20; i++) {
+    const t = i / 20;
+    const p = new THREE.Vector3(-span / 2 + t * span, -Math.sin(t * Math.PI) * sag, 0);
+    if (prev) {
+      const seg = prev.clone().add(p).multiplyScalar(0.5);
+      const wire = cyl(0.004, 0.004, prev.distanceTo(p), string, 5);
+      wire.position.copy(seg);
+      wire.rotation.z = Math.atan2(p.y - prev.y, p.x - prev.x) + Math.PI / 2;
+      g.add(wire);
+    }
+    if (i % 2 === 1) {
+      const flagShape = new THREE.Shape();
+      flagShape.moveTo(-0.05, 0);
+      flagShape.lineTo(0.05, 0);
+      flagShape.lineTo(0, -0.11);
+      flagShape.lineTo(-0.05, 0);
+      const mat = i === 1 ? tint(matte(color, 0.75)) : matte(tones[(i >> 1) % tones.length], 0.75);
+      const flag = new THREE.Mesh(new THREE.ExtrudeGeometry(flagShape, { depth: 0.006, bevelEnabled: false }), mat);
+      flag.position.set(p.x, p.y - 0.005, -0.003);
+      g.add(flag);
+    }
+    prev = p;
+  }
+  return g;
+}
+
+function makeGiftStack(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const specs: Array<[number, number, number, number, number, string | null]> = [
+    [0.3, 0.16, 0.24, 0, 0, null],
+    [0.2, 0.13, 0.18, 0.02, 0.25, '#7ea8b8'],
+    [0.12, 0.1, 0.12, -0.03, 0.5, '#c9a04a'],
+  ];
+  let y = 0;
+  for (const [w, h, d, dx, rot, fixed] of specs) {
+    const mat = fixed ? matte(fixed, 0.6) : tint(matte(color, 0.6));
+    const gift = box(w, h, d, mat);
+    gift.position.set(dx, y + h / 2, 0);
+    gift.rotation.y = rot;
+    g.add(gift);
+    const ribbonMat = matte('#f2ead9', 0.5);
+    const r1 = box(w + 0.006, h + 0.006, 0.03, ribbonMat);
+    r1.position.copy(gift.position);
+    r1.rotation.y = rot;
+    g.add(r1);
+    const r2 = box(0.03, h + 0.006, d + 0.006, ribbonMat);
+    r2.position.copy(gift.position);
+    r2.rotation.y = rot;
+    g.add(r2);
+    y += h;
+  }
+  const bow = new THREE.Mesh(new THREE.TorusKnotGeometry(0.028, 0.01, 32, 6), matte('#f2ead9', 0.5));
+  bow.position.set(-0.03, y + 0.02, 0);
+  g.add(bow);
+  shadow(g);
+  return g;
+}
+
+function makeFestiveTree(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const pot = cyl(0.14, 0.11, 0.14, tint(matte(color, 0.7)), 16);
+  pot.position.y = 0.07;
+  g.add(pot);
+  const trunk = cyl(0.03, 0.04, 0.2, wood(WOOD_DARK), 8);
+  trunk.position.y = 0.2;
+  g.add(trunk);
+  const leaves = matte('#3d6642', 0.8);
+  const baubleMat = new THREE.MeshStandardMaterial({ color: '#c94f4f', emissive: '#c94f4f', emissiveIntensity: 0.5, roughness: 0.3 });
+  const bauble2 = new THREE.MeshStandardMaterial({ color: '#c9a04a', emissive: '#c9a04a', emissiveIntensity: 0.5, roughness: 0.3 });
+  let bi = 0;
+  for (const [r, h, y] of [[0.42, 0.5, 0.5], [0.34, 0.45, 0.82], [0.24, 0.4, 1.12]] as Array<[number, number, number]>) {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(r, h, 10), leaves);
+    cone.position.y = y;
+    g.add(cone);
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + y;
+      const bauble = new THREE.Mesh(new THREE.SphereGeometry(0.024, 8, 6), bi++ % 2 ? baubleMat : bauble2);
+      bauble.position.set(Math.cos(a) * r * 0.75, y - h * 0.15, Math.sin(a) * r * 0.75);
+      g.add(bauble);
+    }
+  }
+  const star = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.06),
+    new THREE.MeshStandardMaterial({ color: '#ffe08a', emissive: '#ffd24a', emissiveIntensity: 1.4, roughness: 0.3 })
+  );
+  star.position.y = 1.4;
+  g.add(star);
+  const light = new THREE.PointLight('#ffd9a0', 1.8, 3, 1.8);
+  light.position.y = 0.9;
+  g.add(light);
+  g.userData.lamp = light;
+  shadow(g);
+  return g;
+}
+
+function makeWreath(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const ringMat = matte('#3d6642', 0.85);
+  const wreath = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.055, 10, 24), ringMat);
+  g.add(wreath);
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2;
+    const berry = new THREE.Mesh(new THREE.SphereGeometry(0.016, 6, 5), matte('#c94f4f', 0.5));
+    berry.position.set(Math.cos(a) * 0.19, Math.sin(a) * 0.19, 0.05);
+    g.add(berry);
+  }
+  const bow = box(0.12, 0.06, 0.03, tint(matte(color, 0.55)));
+  bow.position.set(0, -0.18, 0.05);
+  g.add(bow);
+  for (const side of [-1, 1]) {
+    const loop = box(0.06, 0.05, 0.025, tint(matte(color, 0.55)));
+    loop.position.set(side * 0.07, -0.16, 0.045);
+    loop.rotation.z = side * 0.5;
+    g.add(loop);
+  }
+  shadow(g);
+  return g;
+}
+
+function makePumpkin(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 12), tint(matte(color, 0.65)));
+  body.scale.y = 0.78;
+  body.position.y = 0.125;
+  g.add(body);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI;
+    const rib = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.012, 6, 18), tint(matte(color, 0.7)));
+    rib.scale.y = 0.78;
+    rib.position.y = 0.125;
+    rib.rotation.y = a;
+    g.add(rib);
+  }
+  const stem = cyl(0.02, 0.03, 0.07, matte('#5d7d4a', 0.8), 8);
+  stem.position.y = 0.27;
+  stem.rotation.z = 0.15;
+  g.add(stem);
+  shadow(g);
+  return g;
+}
+
 // ---------------------------------------------------------------- registry
 
 const WOODS = ['#b98a5e', '#6b4a2f', '#e0d4bd', '#3d3f45'];
@@ -2394,6 +2599,14 @@ export const CATALOG: ItemDef[] = [
   // Rugs
   { id: 'round-rug', name: 'Round Braided Rug', cat: 'Rugs', colors: ['#b8907a', '#7d9471', '#5e7a94', '#a8788a'], make: makeRoundRug, rug: true },
   { id: 'rect-rug', name: 'Area Rug', cat: 'Rugs', colors: ['#b8907a', '#7d9471', '#5e7a94', '#a8788a'], make: makeRectRug, rug: true },
+  // Seasonal
+  { id: 'cake', name: 'Birthday Cake', cat: 'Seasonal', colors: ['#e8b0c8', '#7ea8b8', '#c9e0a0'], make: makeBirthdayCake, stackable: true },
+  { id: 'balloons', name: 'Balloon Bunch', cat: 'Seasonal', colors: ['#e8b0c8', '#c94f4f', '#7ea8b8'], make: makeBalloons },
+  { id: 'bunting', name: 'Party Bunting', cat: 'Seasonal', colors: ['#e8b0c8', '#c94f4f', '#7d9471'], make: makeBunting, wall: true },
+  { id: 'gifts', name: 'Gift Stack', cat: 'Seasonal', colors: ['#b0685e', '#7d9471', '#5e7a94'], make: makeGiftStack, stackable: true },
+  { id: 'festive-tree', name: 'Festive Tree', cat: 'Seasonal', colors: ['#c96f4a', '#b0685e', '#5e7a94'], make: makeFestiveTree },
+  { id: 'wreath', name: 'Door Wreath', cat: 'Seasonal', colors: ['#c94f4f', '#c9a04a', '#5e7a94'], make: makeWreath, wall: true },
+  { id: 'pumpkin', name: 'Plump Pumpkin', cat: 'Seasonal', colors: ['#d0793a', '#c9a04a', '#e8e0d0'], make: makePumpkin, stackable: true },
   // Wall
   { id: 'window', name: 'Sunny Window', cat: 'Wall', colors: ['#e8e0d0', '#b98a5e', '#6b4a2f'], make: makeSunnyWindow, wall: true },
   { id: 'door', name: 'Cottage Door', cat: 'Wall', colors: ['#b98a5e', '#6b4a2f', '#7d9471', '#5e7a94'], make: makeCottageDoor, wall: true, floorWall: true },
@@ -2410,7 +2623,7 @@ export const CATALOG: ItemDef[] = [
 ];
 
 export const CATEGORIES: Category[] = [
-  'Seating', 'Beds', 'Tables', 'Storage', 'Workspace', 'Decor', 'Toys', 'Lighting', 'Plants', 'Rugs', 'Wall',
+  'Seating', 'Beds', 'Tables', 'Storage', 'Workspace', 'Decor', 'Toys', 'Lighting', 'Plants', 'Rugs', 'Wall', 'Seasonal',
 ];
 
 // Finish options per item; the first entry matches the factory's native look.

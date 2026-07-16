@@ -3,7 +3,7 @@ import { RoomGame, type PlacedItem, type MoodName } from '../game/game';
 import { WALL_COLORS, FLOOR_COLORS, type RoomShape } from '../game/room';
 import { STYLE_RECIPES } from '../game/styles';
 import { WALL_FINISHES, FLOOR_FINISHES, type WallFinish, type FloorFinish } from '../assets/materials';
-import { thumbnail } from './thumbs';
+import { thumbnail, measuredSize } from './thumbs';
 import { audio } from '../core/audio';
 
 const MOOD_CYCLE: MoodName[] = ['day', 'sunset', 'night'];
@@ -157,8 +157,17 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         <button class="pill-btn" id="btn-save-room">⬇ Save room</button>
         <button class="pill-btn" id="btn-load-room">⬆ Load room</button>
       </div>
+      <div class="insp-actions">
+        <button class="pill-btn" id="btn-challenge">🎯 Create challenge link</button>
+      </div>
       <input type="file" id="room-file" accept=".json,application/json" hidden />
     </section>
+
+    <div class="challenge hidden" id="challenge">
+      <span id="challenge-text"></span>
+      <button class="toast-btn hidden" id="challenge-accept">Start</button>
+      <button class="toast-btn" id="challenge-dismiss">✕</button>
+    </div>
 
     <aside class="guide hidden" id="guide">
       <div class="guide-head">
@@ -208,7 +217,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   const toast = $('toast');
   const scaleInput = $<HTMLInputElement>('insp-scale');
   const searchInput = $<HTMLInputElement>('cat-search');
-  let activeCat: Category = 'Seating';
+  let activeCat: Category | 'Recent' = 'Seating';
   let toastTimer = 0;
 
   const toastBtn = $<HTMLButtonElement>('toast-btn');
@@ -230,15 +239,35 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   };
 
   // ----- catalog -----
+  // Recently placed items resurface as a pseudo-category.
+  const RECENT_KEY = 'myownroom-ant-recent';
+  const getRecent = (): string[] => {
+    try {
+      const arr = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]') as string[];
+      return Array.isArray(arr) ? arr.filter((id) => CATALOG.some((d) => d.id === id)) : [];
+    } catch {
+      return [];
+    }
+  };
+  const pushRecent = (id: string): void => {
+    const arr = [id, ...getRecent().filter((x) => x !== id)].slice(0, 8);
+    try {
+      localStorage.setItem(RECENT_KEY, JSON.stringify(arr));
+    } catch {
+      // Best-effort only.
+    }
+  };
+
   const renderTabs = (): void => {
     tabs.innerHTML = '';
     const searching = searchInput.value.trim().length > 0;
-    for (const cat of CATEGORIES) {
+    const cats: string[] = getRecent().length ? ['Recent', ...CATEGORIES] : [...CATEGORIES];
+    for (const cat of cats) {
       const b = document.createElement('button');
       b.className = 'cat-tab' + (!searching && cat === activeCat ? ' active' : '');
       b.textContent = cat;
       b.addEventListener('click', () => {
-        activeCat = cat;
+        activeCat = cat as Category;
         searchInput.value = '';
         audio.click();
         renderTabs();
@@ -254,7 +283,9 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
     // Searching spans every category, like the original; tabs filter otherwise.
     const defs = query
       ? CATALOG.filter((d) => d.name.toLowerCase().includes(query) || d.cat.toLowerCase().includes(query))
-      : CATALOG.filter((d) => d.cat === activeCat);
+      : (activeCat as string) === 'Recent'
+        ? getRecent().map((id) => CATALOG.find((d) => d.id === id)!).filter(Boolean)
+        : CATALOG.filter((d) => d.cat === activeCat);
     if (defs.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'cat-empty';
@@ -271,8 +302,18 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
       const label = document.createElement('span');
       label.textContent = def.name;
       card.append(img, label);
+      const size = measuredSize(def.id);
+      if (size) {
+        const dims = document.createElement('span');
+        dims.className = 'cat-size';
+        dims.textContent = size.d < 0.09
+          ? `${size.w.toFixed(1)} m wide`
+          : `${size.w.toFixed(1)} × ${size.d.toFixed(1)} m`;
+        card.appendChild(dims);
+      }
       card.addEventListener('click', () => {
         game.addItem(def.id);
+        pushRecent(def.id);
         showToast(`${def.name} added`);
         if (window.innerWidth < 720) catalogEl.classList.add('collapsed');
       });
@@ -702,6 +743,8 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
     }
   };
 
+  game.onRoomsChange = () => syncAll();
+
   /** Refreshes every panel that mirrors game state (after switch/load/style). */
   const syncAll = (): void => {
     moodBtn.innerHTML = MOOD_ICON[game.getMood()];
@@ -881,6 +924,90 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
       showToast('Room emptied — a fresh start!');
     }
   });
+
+  // ----- design challenges (private links) -----
+  interface Challenge {
+    v: 1;
+    t: string;
+    max: number;
+    room?: unknown;
+  }
+  const challengeEl = $('challenge');
+  const challengeText = $('challenge-text');
+  const challengeAccept = $('challenge-accept');
+  let activeChallenge: { title: string; max: number } | null = null;
+
+  const b64encode = (s: string): string => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+  const b64decode = (s: string): string => new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0)));
+
+  $('btn-challenge').addEventListener('click', () => {
+    const maxRaw = window.prompt('Challenge: max number of items?', '10');
+    if (!maxRaw) return;
+    const max = Math.max(1, Math.min(200, parseInt(maxRaw, 10) || 10));
+    const includeRoom = window.confirm('Include the current room as the starting point?\n(Cancel sends an empty-room challenge.)');
+    const payload: Challenge = { v: 1, t: game.getTitle(), max };
+    if (includeRoom) {
+      const room = game.exportRoom();
+      delete room.assets;
+      for (const it of room.items) {
+        delete it.img;
+        delete it.link;
+      }
+      payload.room = room;
+    }
+    const url = `${location.origin}${location.pathname}#c=${b64encode(JSON.stringify(payload))}`;
+    void navigator.clipboard
+      .writeText(url)
+      .then(() => showToast('Challenge link copied — send it to a friend'))
+      .catch(() => window.prompt('Copy this challenge link:', url));
+    audio.place();
+  });
+
+  const challengeProgress = (count: number): void => {
+    if (!activeChallenge) return;
+    const over = count > activeChallenge.max;
+    challengeText.textContent = `🎯 ${activeChallenge.title} — ${count}/${activeChallenge.max} items${over ? ' (over the limit!)' : ''}`;
+    challengeEl.classList.toggle('over', over);
+  };
+
+  const hashMatch = /#c=([A-Za-z0-9+/=]+)/.exec(location.hash);
+  if (hashMatch) {
+    try {
+      const data = JSON.parse(b64decode(hashMatch[1])) as Challenge;
+      if (data.v === 1 && data.max > 0) {
+        challengeText.textContent = `🎯 Challenge: “${data.t || 'Room'}” using at most ${data.max} items`;
+        challengeAccept.classList.remove('hidden');
+        challengeEl.classList.remove('hidden');
+        challengeAccept.addEventListener('click', () => {
+          game.createRoom();
+          if (data.room && !game.importRoom(data.room)) {
+            showToast('The challenge room could not be loaded');
+          }
+          game.setTitle(`${data.t || 'Challenge'} ✦`);
+          syncAll();
+          activeChallenge = { title: data.t || 'Challenge', max: data.max };
+          challengeAccept.classList.add('hidden');
+          challengeProgress(game.items.length);
+          showToast(`Good luck — ${data.max} items max!`);
+          audio.place();
+        });
+      }
+    } catch {
+      // Malformed link: ignore quietly.
+    }
+    history.replaceState(null, '', location.pathname);
+  }
+  $('challenge-dismiss').addEventListener('click', () => {
+    challengeEl.classList.add('hidden');
+    activeChallenge = null;
+  });
+  {
+    const chained = game.onItemsChange;
+    game.onItemsChange = (count) => {
+      chained(count);
+      challengeProgress(count);
+    };
+  }
 
   // ----- guided first-room checklist -----
   const GUIDE_KEY = 'myownroom-ant-guide-done';

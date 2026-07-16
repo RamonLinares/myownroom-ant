@@ -14,7 +14,7 @@ npm run dev      # http://127.0.0.1:5190
 
 ## Features
 
-- **Catalog** of 76 procedurally modeled pieces across 11 categories (seating, beds, tables, storage, workspace, decor, toys, lighting, plants, rugs, wall art), each with live-rendered 3D thumbnails, plus live search across all categories. You can also **import your own .glb/.gltf models** (up to 6 MB) — they're auto-scaled to furniture size, grounded, placeable like any item, and embedded in saves and room files.
+- **Catalog** of 83 procedurally modeled pieces across 12 categories (including a seasonal pack: cake, balloons, bunting, gifts, festive tree, wreath, pumpkin) (seating, beds, tables, storage, workspace, decor, toys, lighting, plants, rugs, wall art), each with live-rendered 3D thumbnails, plus live search, measured size labels, and a Recent tab of your latest picks. You can also **import your own .glb/.gltf models** (up to 6 MB) — they're auto-scaled to furniture size, grounded, placeable like any item, and embedded in saves and room files.
 - **Arrange**: drag furniture on the floor, drag wall art along the walls, rotate (buttons or `Q`/`E`), flip/mirror (button or `F` — swap a door's handle side or a corner sofa's chaise), resize (slider or `[`/`]`), recolor with per-item swatch palettes, re-dress with **material finishes** (fabric / leather / wood / plain / metal, per item), duplicate (`D`), remove (`Del`).
 - **Stacking**: small items (lamps, plants, books, vases) drop onto tabletops, shelves and dressers exactly where you point; moving a table carries everything on it.
 - **Room size & shape**: the 🏠 panel offers rectangle, L, T, and U floor plans plus width/depth sliders (6–14 m × 5–12 m), **wall finishes** (paint, stripes, polka dots, sprig wallpaper) and **floor finishes** (planks, chevron parquet, tiles, carpet) — each tintable with palette swatches or a free color picker. Walls are rebuilt from the floor plan and rendered single-sided, so the camera can orbit the room fully — near walls vanish, dollhouse style. Furniture re-fits itself and wall decor re-snaps to the nearest wall when the plan changes.
@@ -24,6 +24,13 @@ npm run dev      # http://127.0.0.1:5190
 - **Go there**: double-click (or double-tap) any open patch of floor — in edit mode the camera pans to center on it; in walk mode you glide over to stand there.
 - **Walk interactions**: tap furniture within reach — lamps, fairy lights, screens, and appliances toggle on/off; radios and record players play a tune; clocks chime; the music box twinkles; plants rustle; toys squeak; rocking chairs rock; doors answer with a knock. Everything else gives a friendly poke.
 - **Photography**: the camera button (or `P` while walking) captures a framed photo with a flash and shutter sound; save it as a timestamped PNG from the polaroid preview.
+- **Multi-room homes**: create several rooms in one save, switch between them from the 🏠 panel, and point any door at another room — walking through it in walk mode takes you there.
+- **Style recipes**: one-tap themes (Scandinavian, Cozy Cottage, Retro, Minimalist, Dark Academia) restyle finishes, mood, and item colors — with an Undo button on the toast.
+- **Before & after**: style makeovers capture a "before" automatically (or pin one from any photo); later photos open as an interactive comparison slider.
+- **Presentation mode**: a UI-free cinematic orbit with slow mood transitions, plus an exportable 8-second webm clip.
+- **Design insights**: gentle, optional suggestions in the 🏠 panel — lighting coverage, bare walls, crowding, tight squeezes.
+- **Guided first room**: new visitors get a four-step checklist that retires itself once completed.
+- **Design challenges**: generate a private link ("redesign this room with at most N items") that friends can open — a live counter tracks their progress.
 - **Persistence**: the room auto-saves to `localStorage` and restores on reload; a starter room greets first-time visitors. The 🏠 panel also offers **Save room / Load room** — export the whole room (layout, finishes, mood) as a JSON file and import it on any device or browser.
 - **Feedback**: procedural WebAudio chirps for select/place/remove (mutable), pop-in tweens, pulsing selection ring.
 - **Mobile**: pointer-event input, bottom-sheet catalog, safe-area-aware HUD.

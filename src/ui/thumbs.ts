@@ -3,6 +3,12 @@ import type { ItemDef } from '../assets/catalog';
 
 let renderer: THREE.WebGLRenderer | null = null;
 const cache = new Map<string, string>();
+const sizes = new Map<string, { w: number; d: number; h: number }>();
+
+/** Footprint measured while the thumbnail was rendered (world meters). */
+export function measuredSize(defId: string): { w: number; d: number; h: number } | undefined {
+  return sizes.get(defId);
+}
 
 /** Renders a small studio shot of a catalog item and returns a data URL. */
 export function thumbnail(def: ItemDef): string {
@@ -26,6 +32,7 @@ export function thumbnail(def: ItemDef): string {
   scene.add(group);
   const box = new THREE.Box3().setFromObject(group);
   const size = box.getSize(new THREE.Vector3());
+  sizes.set(def.id, { w: size.x, d: size.z, h: size.y });
   const center = box.getCenter(new THREE.Vector3());
   const radius = Math.max(size.x, size.y, size.z) * 0.72 + 0.12;
 

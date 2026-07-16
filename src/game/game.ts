@@ -70,6 +70,8 @@ export class RoomGame {
   onHint: (text: string) => void = () => {};
   onModeChange: (mode: GameMode) => void = () => {};
   onToast: (text: string) => void = () => {};
+  /** Fired after the active room changes (switch, create, delete, door travel). */
+  onRoomsChange: () => void = () => {};
   /** Joystick feedback for the touch UI: origin + thumb offset, or null when released. */
   onJoystick: (state: { x: number; y: number; dx: number; dy: number } | null) => void = () => {};
 
@@ -1266,7 +1268,7 @@ export class RoomGame {
   private static readonly POWERED = new Set([
     'floor-lamp', 'table-lamp', 'paper-lantern', 'candles', 'lava-lamp', 'softbox',
     'fairy-lights', 'dollhouse', 'air-purifier', 'wall-ac', 'desktop',
-    'monitor', 'laptop', 'ultrawide',
+    'monitor', 'laptop', 'ultrawide', 'festive-tree', 'cake',
   ]);
 
   private interact(item: PlacedItem): void {
@@ -1736,6 +1738,7 @@ export class RoomGame {
     this.applySaved(target.data);
     saveHome(this.home);
     if (wasWalking) this.enterWalk();
+    this.onRoomsChange();
     return true;
   }
 
