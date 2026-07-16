@@ -98,6 +98,11 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         <nav class="cat-tabs finish-tabs" id="floor-styles"></nav>
         <div class="swatches" id="floor-colors"></div>
       </div>
+      <div class="insp-actions">
+        <button class="pill-btn" id="btn-save-room">⬇ Save room</button>
+        <button class="pill-btn" id="btn-load-room">⬆ Load room</button>
+      </div>
+      <input type="file" id="room-file" accept=".json,application/json" hidden />
     </section>
 
     <footer class="hintbar" id="hintbar">Tap an item in the catalog to add it · drag furniture to arrange your room</footer>
@@ -385,6 +390,46 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   syncWallRow();
   syncFloorRow();
   syncRoomUI();
+
+  // ----- save / load room files -----
+  const roomFile = $<HTMLInputElement>('room-file');
+  $('btn-save-room').addEventListener('click', () => {
+    const data = JSON.stringify(game.exportRoom(), null, 2);
+    const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `my-own-room-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    audio.click();
+    showToast('Room saved to file');
+  });
+  $('btn-load-room').addEventListener('click', () => roomFile.click());
+  roomFile.addEventListener('change', () => {
+    const file = roomFile.files?.[0];
+    roomFile.value = '';
+    if (!file) return;
+    void file.text().then((text) => {
+      let data: unknown;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        showToast('That file is not a room save');
+        return;
+      }
+      if (!window.confirm('Replace your current room with the loaded file?')) return;
+      if (game.importRoom(data)) {
+        moodBtn.textContent = MOOD_ICON[game.getMood()];
+        syncRoomUI();
+        syncWallRow();
+        syncFloorRow();
+        showToast('Room loaded!');
+        audio.place();
+      } else {
+        showToast('That file is not a room save');
+      }
+    });
+  });
 
   // ----- walk mode -----
   const walkBtn = $('btn-walk');

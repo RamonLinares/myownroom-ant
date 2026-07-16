@@ -22,7 +22,7 @@ npm run dev      # http://127.0.0.1:5190
 - **Walk mode**: first-person stroll through your room at eye height — WASD/arrows + drag-to-look on desktop, dual-thumb controls (left joystick, right look) on touch, with furniture collision and a subtle head bob. `Esc` or the door button exits.
 - **Walk interactions**: tap furniture within reach — lamps, fairy lights, screens, and appliances toggle on/off; radios and record players play a tune; clocks chime; the music box twinkles; plants rustle; toys squeak; rocking chairs rock; doors answer with a knock. Everything else gives a friendly poke.
 - **Photography**: the camera button (or `P` while walking) captures a framed photo with a flash and shutter sound; save it as a timestamped PNG from the polaroid preview.
-- **Persistence**: the room auto-saves to `localStorage` and restores on reload; a starter room greets first-time visitors.
+- **Persistence**: the room auto-saves to `localStorage` and restores on reload; a starter room greets first-time visitors. The 🏠 panel also offers **Save room / Load room** — export the whole room (layout, finishes, mood) as a JSON file and import it on any device or browser.
 - **Feedback**: procedural WebAudio chirps for select/place/remove (mutable), pop-in tweens, pulsing selection ring.
 - **Mobile**: pointer-event input, bottom-sheet catalog, safe-area-aware HUD.
 

@@ -6,7 +6,7 @@ import {
   type RoomConfig, type RoomShape, type Rect, type WallSeg,
 } from './room';
 import { WALL_FINISHES, FLOOR_FINISHES, type WallFinish, type FloorFinish } from '../assets/materials';
-import { loadRoom, saveRoom, clearSaved, type SavedItem } from './state';
+import { loadRoom, saveRoom, clearSaved, type SavedItem, type SavedRoom } from './state';
 import { audio } from '../core/audio';
 
 export interface PlacedItem {
@@ -1202,7 +1202,7 @@ export class RoomGame {
     this.saveTimer = window.setTimeout(() => this.persist(), 350);
   }
 
-  private persist(): void {
+  private snapshot(): SavedRoom {
     const items: SavedItem[] = this.items.map((i) => ({
       def: i.def.id,
       pos: [i.group.position.x, i.group.position.y, i.group.position.z],
@@ -1211,13 +1211,49 @@ export class RoomGame {
       flip: i.group.scale.x < 0 || undefined,
       color: i.color,
     }));
-    saveRoom({ version: 1, mood: this.mood, room: { ...this.roomCfg }, items });
+    return { version: 1, mood: this.mood, room: { ...this.roomCfg }, items };
+  }
+
+  private persist(): void {
+    saveRoom(this.snapshot());
+  }
+
+  /** The current room as a serializable object (same shape as the auto-save). */
+  exportRoom(): SavedRoom {
+    return JSON.parse(JSON.stringify(this.snapshot())) as SavedRoom;
+  }
+
+  /** Replaces the current room with a previously exported one. */
+  importRoom(data: unknown): boolean {
+    const saved = data as SavedRoom;
+    if (!saved || saved.version !== 1 || !Array.isArray(saved.items)) return false;
+    if (saved.items.some((s) => !s || typeof s.def !== 'string' || !Array.isArray(s.pos))) return false;
+    this.select(null);
+    for (const item of this.items) {
+      this.scene.remove(item.group);
+      disposeGroup(item.group);
+    }
+    this.items.length = 0;
+    this.applySaved(saved);
+    this.persist();
+    return true;
   }
 
   private restore(): void {
     const saved = loadRoom();
+    if (!saved || saved.items.length === 0) {
+      this.applyRoom({ ...DEFAULT_ROOM });
+      this.starterRoom();
+      this.setMood('day');
+      return;
+    }
+    this.applySaved(saved);
+  }
+
+  /** Rebuilds room shell and items from a save; assumes the item list is empty. */
+  private applySaved(saved: SavedRoom): void {
     const cfg: RoomConfig = { ...DEFAULT_ROOM };
-    const r = saved?.room;
+    const r = saved.room;
     if (r) {
       if (typeof r.w === 'number') cfg.w = r.w;
       if (typeof r.d === 'number') cfg.d = r.d;
@@ -1228,11 +1264,6 @@ export class RoomGame {
       if (/^#[0-9a-f]{6}$/i.test(r.floorColor ?? '')) cfg.floorColor = r.floorColor as string;
     }
     this.applyRoom(cfg);
-    if (!saved || saved.items.length === 0) {
-      this.starterRoom();
-      this.setMood('day');
-      return;
-    }
     for (const s of saved.items) {
       const def = getDef(s.def);
       if (!def) continue;
