@@ -146,6 +146,10 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         <div class="swatches" id="floor-colors"></div>
       </div>
       <div class="insp-actions">
+        <button class="pill-btn" id="btn-present">🎬 Present</button>
+        <button class="pill-btn" id="btn-clip">🎥 8s clip</button>
+      </div>
+      <div class="insp-actions">
         <button class="pill-btn" id="btn-save-room">⬇ Save room</button>
         <button class="pill-btn" id="btn-load-room">⬆ Load room</button>
       </div>
@@ -157,9 +161,17 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
     <div class="flash" id="flash"></div>
     <div class="joystick hidden" id="joystick"><div class="joy-thumb" id="joy-thumb"></div></div>
     <section class="photo-card hidden" id="photo-card">
-      <img id="photo-img" alt="Room photo" />
+      <div class="photo-compare" id="photo-compare">
+        <img id="photo-img" alt="Room photo" />
+        <div class="photo-before hidden" id="photo-before-wrap"><img id="photo-before" alt="Before" /></div>
+        <div class="photo-divider hidden" id="photo-divider"></div>
+        <input type="range" id="photo-slider" class="photo-slider hidden" min="2" max="98" value="50" />
+        <span class="photo-tag tag-before hidden" id="tag-before">Before</span>
+        <span class="photo-tag tag-after hidden" id="tag-after">After</span>
+      </div>
       <div class="photo-actions">
-        <a class="pill-btn" id="photo-download" download="my-own-room.png">⬇ Save photo</a>
+        <a class="pill-btn" id="photo-download" download="my-own-room.png">⬇ Save</a>
+        <button class="pill-btn" id="photo-mark-before" title="Compare future photos against this one">📌 Before</button>
         <button class="pill-btn" id="photo-close">✕ Close</button>
       </div>
     </section>
@@ -752,6 +764,26 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   const photoImg = $<HTMLImageElement>('photo-img');
   const photoDownload = $<HTMLAnchorElement>('photo-download');
   const flash = $('flash');
+  const beforeWrap = $('photo-before-wrap');
+  const beforeImg = $<HTMLImageElement>('photo-before');
+  const photoSlider = $<HTMLInputElement>('photo-slider');
+  const photoDivider = $('photo-divider');
+  const setCompare = (pct: number): void => {
+    beforeWrap.style.width = `${pct}%`;
+    photoDivider.style.left = `${pct}%`;
+  };
+  photoSlider.addEventListener('input', () => setCompare(parseFloat(photoSlider.value)));
+  const syncCompareUI = (): void => {
+    const comparing = !!beforeShot;
+    for (const el of [beforeWrap, photoDivider, photoSlider, $('tag-before'), $('tag-after')]) {
+      el.classList.toggle('hidden', !comparing);
+    }
+    if (comparing && beforeShot) {
+      beforeImg.src = beforeShot;
+      photoSlider.value = '50';
+      setCompare(50);
+    }
+  };
   $('btn-photo').addEventListener('click', () => {
     const url = game.takePhoto();
     flash.classList.add('show');
@@ -760,11 +792,52 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
     photoDownload.href = url;
     const stamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-');
     photoDownload.download = `my-own-room-${stamp}.png`;
+    syncCompareUI();
     photoCard.classList.remove('hidden');
+  });
+  $('photo-mark-before').addEventListener('click', () => {
+    beforeShot = photoImg.src;
+    showToast('Saved as “before” — future photos become comparisons');
+    audio.click();
   });
   $('photo-close').addEventListener('click', () => {
     photoCard.classList.add('hidden');
     audio.click();
+  });
+
+  // ----- presentation mode -----
+  game.onPresent = (presenting) => {
+    document.body.classList.toggle('presenting', presenting);
+    if (!presenting) syncAll();
+  };
+  $('btn-present').addEventListener('click', () => {
+    roomPanel.classList.add('hidden');
+    game.enterPresentation();
+    showToast('Presenting — click or press Esc to stop');
+  });
+  $('btn-clip').addEventListener('click', () => {
+    if (typeof MediaRecorder === 'undefined') {
+      showToast('Video recording is not supported in this browser');
+      return;
+    }
+    roomPanel.classList.add('hidden');
+    game.enterPresentation();
+    showToast('Recording an 8-second clip…');
+    void game.recordClip(8).then((blob) => {
+      game.exitPresentation();
+      if (!blob) {
+        showToast('Recording failed in this browser');
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `my-own-room-${new Date().toISOString().slice(0, 10)}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Clip saved');
+      audio.place();
+    });
   });
 
   $('btn-clear').addEventListener('click', () => {
@@ -779,6 +852,10 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   window.addEventListener('keydown', (e) => {
     const target = e.target as HTMLElement;
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+    if (game.isPresenting()) {
+      if (e.key === 'Escape') game.exitPresentation();
+      return;
+    }
     if (game.getMode() === 'walk') {
       if (e.key === 'Escape') game.exitWalk();
       if (e.key.toLowerCase() === 'p') $('btn-photo').click();

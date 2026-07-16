@@ -191,7 +191,8 @@ export class RoomGame {
 
   private frame = (): void => {
     const dt = Math.min(this.clock.getDelta(), 0.05);
-    if (this.mode === 'walk') this.updateWalk(dt);
+    if (this.presenting) this.updatePresentation(dt);
+    else if (this.mode === 'walk') this.updateWalk(dt);
     else this.controls.update();
 
     for (let i = this.tweens.length - 1; i >= 0; i--) {
@@ -842,6 +843,10 @@ export class RoomGame {
 
   private onPointerDown = (e: PointerEvent): void => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
+    if (this.presenting) {
+      this.exitPresentation();
+      return;
+    }
     this.tapDown = { x: e.clientX, y: e.clientY };
     if (this.mode === 'walk') {
       this.onWalkPointerDown(e);
@@ -1407,6 +1412,88 @@ export class RoomGame {
   photoSilent(): string {
     this.renderer.render(this.scene, this.camera);
     return this.canvas.toDataURL('image/jpeg', 0.85);
+  }
+
+  // ------------------------------------------------------------- presentation
+
+  onPresent: (presenting: boolean) => void = () => {};
+  private presenting = false;
+  private presT = 0;
+  private presMoodT = 0;
+  private presEntryMood: MoodName = 'day';
+
+  isPresenting(): boolean {
+    return this.presenting;
+  }
+
+  enterPresentation(): void {
+    if (this.presenting) return;
+    if (this.mode === 'walk') this.exitWalk();
+    this.select(null);
+    this.savedCam = {
+      pos: this.camera.position.clone(),
+      target: this.controls.target.clone(),
+      fov: this.camera.fov,
+    };
+    this.presEntryMood = this.mood;
+    this.controls.enabled = false;
+    this.presenting = true;
+    this.presT = 0;
+    this.presMoodT = 0;
+    this.onPresent(true);
+  }
+
+  exitPresentation(): void {
+    if (!this.presenting) return;
+    this.presenting = false;
+    if (this.savedCam) {
+      this.camera.position.copy(this.savedCam.pos);
+      this.controls.target.copy(this.savedCam.target);
+      this.camera.fov = this.savedCam.fov;
+      this.camera.updateProjectionMatrix();
+    }
+    this.setMood(this.presEntryMood);
+    this.controls.enabled = true;
+    this.onPresent(false);
+  }
+
+  private updatePresentation(dt: number): void {
+    this.presT += dt;
+    this.presMoodT += dt;
+    const center = new THREE.Vector3(0, 1.0, 0);
+    const radius = Math.max(this.roomCfg.w, this.roomCfg.d) * (1.0 + 0.08 * Math.sin(this.presT * 0.13));
+    const az = this.presT * 0.17;
+    const y = 3.2 + 1.3 * Math.sin(this.presT * 0.09);
+    this.camera.position.set(center.x + Math.cos(az) * radius, y, center.z + Math.sin(az) * radius);
+    this.camera.lookAt(center);
+    if (this.presMoodT > 9) {
+      this.presMoodT = 0;
+      const order: MoodName[] = ['day', 'sunset', 'night'];
+      this.setMood(order[(order.indexOf(this.mood) + 1) % order.length]);
+    }
+  }
+
+  /** Records a short cinematic clip of the canvas; resolves to a webm blob. */
+  recordClip(seconds = 8): Promise<Blob | null> {
+    if (typeof MediaRecorder === 'undefined') return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const stream = this.canvas.captureStream(30);
+      const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find((m) =>
+        MediaRecorder.isTypeSupported(m)
+      );
+      if (!mime) {
+        resolve(null);
+        return;
+      }
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6_000_000 });
+      const chunks: BlobPart[] = [];
+      rec.ondataavailable = (e) => {
+        if (e.data.size) chunks.push(e.data);
+      };
+      rec.onstop = () => resolve(new Blob(chunks, { type: 'video/webm' }));
+      rec.start();
+      window.setTimeout(() => rec.stop(), seconds * 1000);
+    });
   }
 
   // ------------------------------------------------------------- style recipes
