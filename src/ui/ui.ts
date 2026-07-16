@@ -24,6 +24,7 @@ const ICONS = {
   sound: svg('<path d="M4 9.5v5h3l5 4.5v-14L7 9.5H4z"/><path d="M15.5 9.2a4.5 4.5 0 0 1 0 5.6M18 6.5a8 8 0 0 1 0 11"/>'),
   muted: svg('<path d="M4 9.5v5h3l5 4.5v-14L7 9.5H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>'),
   trash: svg('<path d="M4 7h16M9.5 7V4.5h5V7"/><path d="M6 7l1 13.5h10L18 7"/><path d="M10 10.5v6M14 10.5v6"/>'),
+  present: svg('<rect x="3" y="8" width="18" height="12" rx="2"/><path d="M3.5 8l2.5-4 4 2-2.5 4M10 6l4 2-2.5 4M14 8l4-2 2 3"/><path d="M10.5 12.5l4 2.5-4 2.5v-5z" fill="currentColor" stroke="none"/>'),
 };
 
 const MOOD_ICON: Record<MoodName, string> = { day: ICONS.sun, sunset: ICONS.sunset, night: ICONS.moon };
@@ -43,6 +44,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         <button class="icon-btn" id="btn-room" title="Room size & shape"></button>
         <button class="icon-btn" id="btn-walk" title="Walk around your room"></button>
         <button class="icon-btn" id="btn-photo" title="Take a photo"></button>
+        <button class="icon-btn" id="btn-present-top" title="Presentation mode"></button>
         <button class="icon-btn" id="btn-mood" title="Lighting mood"></button>
         <button class="icon-btn" id="btn-mute" title="Sound on/off"></button>
         <button class="icon-btn danger" id="btn-clear" title="Empty the room"></button>
@@ -208,6 +210,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   $('btn-room').innerHTML = ICONS.home;
   $('btn-walk').innerHTML = ICONS.walk;
   $('btn-photo').innerHTML = ICONS.camera;
+  $('btn-present-top').innerHTML = ICONS.present;
   $('btn-clear').innerHTML = ICONS.trash;
   const catalogEl = $('catalog');
   const grid = $('cat-grid');
@@ -887,11 +890,13 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
     document.body.classList.toggle('presenting', presenting);
     if (!presenting) syncAll();
   };
-  $('btn-present').addEventListener('click', () => {
+  const startPresentation = (): void => {
     roomPanel.classList.add('hidden');
     game.enterPresentation();
     showToast('Presenting — click or press Esc to stop');
-  });
+  };
+  $('btn-present').addEventListener('click', startPresentation);
+  $('btn-present-top').addEventListener('click', startPresentation);
   $('btn-clip').addEventListener('click', () => {
     if (typeof MediaRecorder === 'undefined') {
       showToast('Video recording is not supported in this browser');

@@ -504,6 +504,10 @@ input[type='range'] {
   top: 74px;
   right: 12px;
   width: 240px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
   background: var(--panel);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
