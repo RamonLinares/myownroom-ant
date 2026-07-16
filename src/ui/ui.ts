@@ -19,6 +19,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         <span class="count-badge" id="item-count">0</span>
       </div>
       <div class="topbar-actions">
+        <button class="icon-btn" id="btn-lock" title="Lock the room">🔓</button>
         <button class="icon-btn" id="btn-room" title="Room size & shape">🏠</button>
         <button class="icon-btn" id="btn-walk" title="Walk around your room">👣</button>
         <button class="icon-btn" id="btn-photo" title="Take a photo">📷</button>
@@ -284,6 +285,28 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
 
   game.onToast = showToast;
 
+  // ----- lock mode -----
+  const lockBtn = $('btn-lock');
+  const syncLock = (): void => {
+    const locked = game.isLocked();
+    lockBtn.textContent = locked ? '🔒' : '🔓';
+    lockBtn.title = locked ? 'Unlock the room' : 'Lock the room';
+    lockBtn.classList.toggle('active', locked);
+    document.body.classList.toggle('locked', locked);
+    if (game.getMode() === 'edit') {
+      hintbar.textContent = locked
+        ? 'Room is locked — orbit, walk and photograph freely'
+        : 'Tap an item in the catalog to add it · drag furniture to arrange your room';
+    }
+  };
+  lockBtn.addEventListener('click', () => {
+    game.setLocked(!game.isLocked());
+    syncLock();
+    showToast(game.isLocked() ? 'Room locked — look, but don’t touch' : 'Room unlocked');
+    audio.click();
+  });
+  syncLock();
+
   // ----- room title -----
   const titleEl = $('room-title');
   const syncTitle = (): void => {
@@ -468,6 +491,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         syncWallRow();
         syncFloorRow();
         syncTitle();
+        syncLock();
         showToast('Room loaded!');
         audio.place();
       } else {

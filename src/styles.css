@@ -506,6 +506,15 @@ body.walk-mode .inspector {
   display: none;
 }
 
+/* ---------- lock mode ---------- */
+body.locked .catalog,
+body.locked .fab,
+body.locked .inspector,
+body.locked .room-panel,
+body.locked #btn-room {
+  display: none;
+}
+
 .joystick {
   position: absolute;
   width: 104px;

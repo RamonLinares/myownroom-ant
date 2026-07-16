@@ -12,6 +12,7 @@ export interface SavedRoom {
   version: 1;
   mood: string;
   title?: string;
+  locked?: boolean;
   room?: {
     w: number;
     d: number;

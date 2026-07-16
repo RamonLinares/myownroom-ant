@@ -87,6 +87,7 @@ export class RoomGame {
   private clock = new THREE.Clock();
   private mode: GameMode = 'edit';
   private title = 'My Own Room';
+  private locked = false;
   private walkYaw = 0;
   private walkPitch = 0;
   private walkKeys = new Set<string>();
@@ -314,6 +315,11 @@ export class RoomGame {
   }
 
   addItem(defId: string): void {
+    if (this.locked) {
+      this.onToast('Unlock the room to add items');
+      audio.error();
+      return;
+    }
     const def = getDef(defId);
     if (!def) return;
     const item = this.buildItem(def, def.colors[0]);
@@ -453,6 +459,11 @@ export class RoomGame {
   }
 
   clearRoom(): void {
+    if (this.locked) {
+      this.onToast('Unlock the room first');
+      audio.error();
+      return;
+    }
     this.select(null);
     for (const item of this.items) {
       this.scene.remove(item.group);
@@ -746,7 +757,7 @@ export class RoomGame {
     }
     if (this.dragging) return;
     this.setPointer(e);
-    const item = this.itemAtPointer();
+    const item = this.locked ? null : this.itemAtPointer();
     if (item) {
       this.select(item);
       this.dragging = item;
@@ -1317,6 +1328,17 @@ export class RoomGame {
     this.saveTimer = window.setTimeout(() => this.persist(), 350);
   }
 
+  isLocked(): boolean {
+    return this.locked;
+  }
+
+  /** Lock mode: items can't be selected, moved, added, or removed. */
+  setLocked(locked: boolean): void {
+    this.locked = locked;
+    if (locked) this.select(null);
+    this.scheduleSave();
+  }
+
   getTitle(): string {
     return this.title;
   }
@@ -1337,7 +1359,7 @@ export class RoomGame {
       color: i.color,
       mat: i.material && i.material !== (i.def.materials?.[0] ?? null) ? i.material : undefined,
     }));
-    return { version: 1, mood: this.mood, title: this.title, room: { ...this.roomCfg }, items };
+    return { version: 1, mood: this.mood, title: this.title, locked: this.locked || undefined, room: { ...this.roomCfg }, items };
   }
 
   private persist(): void {
@@ -1379,6 +1401,7 @@ export class RoomGame {
   /** Rebuilds room shell and items from a save; assumes the item list is empty. */
   private applySaved(saved: SavedRoom): void {
     this.title = typeof saved.title === 'string' && saved.title.trim() ? saved.title.trim().slice(0, 40) : 'My Own Room';
+    this.locked = saved.locked === true;
     const cfg: RoomConfig = { ...DEFAULT_ROOM };
     const r = saved.room;
     if (r) {
