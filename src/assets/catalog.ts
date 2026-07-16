@@ -1391,30 +1391,51 @@ function makeMushroomPot(color: string): THREE.Group {
   return g;
 }
 
+/** Cheval mirror: oval glass swinging between two posts on splayed feet. */
 function makeStandingMirror(color: string): THREE.Group {
   const g = new THREE.Group();
-  const frame = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.028, 10, 30), tint(wood(color)));
-  frame.scale.y = 1.35;
-  frame.position.y = 0.85;
-  frame.rotation.x = -0.06;
+  const woodMat = tint(wood(color));
+  const dark = wood(WOOD_DARK);
+  const frame = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.028, 10, 32), woodMat);
+  frame.scale.y = 1.4;
+  frame.position.y = 0.97;
+  frame.rotation.x = -0.08;
   g.add(frame);
   const glass = new THREE.Mesh(
-    new THREE.CircleGeometry(0.29, 28),
+    new THREE.CircleGeometry(0.26, 28),
     new THREE.MeshStandardMaterial({ color: '#dfeef5', metalness: 0.3, roughness: 0.12, emissive: '#aebfc8', emissiveIntensity: 0.25 })
   );
-  glass.scale.y = 1.35;
-  glass.position.set(0, 0.85, 0.002);
-  glass.rotation.x = -0.06;
+  glass.scale.y = 1.4;
+  glass.position.set(0, 0.97, 0.02);
+  glass.rotation.x = -0.08;
   g.add(glass);
+  // Wooden back panel so the mirror isn't a hollow hoop from behind.
+  const back = new THREE.Mesh(new THREE.CircleGeometry(0.265, 28), woodMat);
+  back.scale.y = 1.4;
+  back.position.set(0, 0.97, 0.012);
+  back.rotation.set(-0.08, Math.PI, 0);
+  g.add(back);
   for (const side of [-1, 1]) {
-    const leg = cyl(0.018, 0.022, 0.5, wood(WOOD_DARK), 10);
-    leg.position.set(side * 0.22, 0.25, -0.06);
-    leg.rotation.x = 0.2;
-    g.add(leg);
+    const post = cyl(0.024, 0.028, 1.14, woodMat, 12);
+    post.position.set(side * 0.36, 0.57, 0);
+    g.add(post);
+    const finial = new THREE.Mesh(new THREE.SphereGeometry(0.034, 10, 8), woodMat);
+    finial.position.set(side * 0.36, 1.16, 0);
+    g.add(finial);
+    // Pivot knob joining the frame to its post.
+    const pivot = cyl(0.018, 0.018, 0.09, dark, 10);
+    pivot.rotation.z = Math.PI / 2;
+    pivot.position.set(side * 0.325, 0.97, 0);
+    g.add(pivot);
+    // Splayed foot running front-to-back under each post.
+    const foot = rounded(0.055, 0.05, 0.4, 0.02, dark);
+    foot.position.set(side * 0.36, 0.028, 0);
+    g.add(foot);
   }
-  const bar = box(0.44, 0.03, 0.03, wood(WOOD_DARK));
-  bar.position.set(0, 0.45, -0.1);
-  g.add(bar);
+  const crossbar = cyl(0.018, 0.018, 0.66, dark, 10);
+  crossbar.rotation.z = Math.PI / 2;
+  crossbar.position.set(0, 0.24, 0);
+  g.add(crossbar);
   shadow(g);
   return g;
 }
