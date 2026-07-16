@@ -1957,6 +1957,161 @@ function makeCottageDoor(color: string): THREE.Group {
   return g;
 }
 
+function makeModernDoor(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const w = 0.92, h = 2.05;
+  addCasing(g, w, h, matte('#d8d4cc', 0.5), 0.06, 0.05);
+  const slab = box(w, h, 0.05, tint(matte(color, 0.55)));
+  g.add(slab);
+  const frost = box(0.14, h - 0.4, 0.06, new THREE.MeshStandardMaterial({ color: '#dfe8ec', transparent: true, opacity: 0.55, roughness: 0.2 }));
+  frost.position.set(-0.16, 0, 0);
+  g.add(frost);
+  const bar = cyl(0.015, 0.015, 0.62, metal(METAL_GREY, 0.3), 10);
+  bar.position.set(w / 2 - 0.12, 0, 0.07);
+  g.add(bar);
+  for (const sy of [-0.24, 0.24]) {
+    const standoff = cyl(0.011, 0.011, 0.045, metal(METAL_GREY, 0.3), 8);
+    standoff.rotation.x = Math.PI / 2;
+    standoff.position.set(w / 2 - 0.12, sy, 0.048);
+    g.add(standoff);
+  }
+  shadow(g);
+  return g;
+}
+
+function makeBarnDoor(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const dark = metal('#3d3f45', 0.45);
+  const doorW = 0.96, doorH = 1.92;
+  // Exposed slider rail above the door.
+  const rail = box(1.65, 0.05, 0.035, dark);
+  rail.position.set(0, doorH / 2 + 0.11, 0.01);
+  g.add(rail);
+  for (const side of [-0.72, 0.72]) {
+    const mount = cyl(0.02, 0.02, 0.03, dark, 8);
+    mount.rotation.x = Math.PI / 2;
+    mount.position.set(side, doorH / 2 + 0.11, 0.028);
+    g.add(mount);
+  }
+  // The door hangs slightly slid to one side.
+  const door = new THREE.Group();
+  door.position.set(0.14, 0, 0.045);
+  const plankMat = tint(wood(color));
+  for (let i = 0; i < 5; i++) {
+    const plank = box(0.182, doorH, 0.045, plankMat);
+    plank.position.x = -doorW / 2 + 0.095 + i * 0.192;
+    door.add(plank);
+  }
+  for (const sy of [-1, 1]) {
+    const batten = box(doorW, 0.12, 0.02, plankMat);
+    batten.position.set(0, sy * (doorH / 2 - 0.14), 0.033);
+    door.add(batten);
+  }
+  const diag = box(1.62, 0.11, 0.02, plankMat);
+  diag.position.z = 0.033;
+  diag.rotation.z = Math.atan2(doorH - 0.4, doorW);
+  door.add(diag);
+  for (const side of [-0.24, 0.24]) {
+    const hanger = box(0.05, 0.24, 0.018, dark);
+    hanger.position.set(side, doorH / 2 - 0.02, 0.058);
+    door.add(hanger);
+    const wheel = cyl(0.05, 0.05, 0.028, dark, 14);
+    wheel.rotation.x = Math.PI / 2;
+    wheel.position.set(side, doorH / 2 + 0.11, 0.058);
+    door.add(wheel);
+  }
+  const handle = cyl(0.016, 0.016, 0.42, dark, 8);
+  handle.position.set(-doorW / 2 + 0.12, -0.05, 0.075);
+  door.add(handle);
+  g.add(door);
+  shadow(g);
+  return g;
+}
+
+function makeArchedDoor(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const w = 0.92, r = w / 2, hRect = 1.55;
+  const yBot = -(hRect + r) / 2;
+  const shape = new THREE.Shape();
+  shape.moveTo(-w / 2, yBot);
+  shape.lineTo(w / 2, yBot);
+  shape.lineTo(w / 2, yBot + hRect);
+  shape.absarc(0, yBot + hRect, r, 0, Math.PI, false);
+  shape.lineTo(-w / 2, yBot);
+  const slab = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.05, bevelEnabled: false }), tint(wood(color)));
+  slab.position.z = -0.025;
+  g.add(slab);
+  const caseMat = wood('#e8e0d0', 0.6);
+  for (const side of [-1, 1]) {
+    const jamb = box(0.08, hRect + 0.02, 0.07, caseMat);
+    jamb.position.set(side * (w / 2 + 0.04), yBot + hRect / 2, 0);
+    g.add(jamb);
+  }
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(r + 0.04, 0.042, 8, 26, Math.PI), caseMat);
+  arch.position.set(0, yBot + hRect, 0);
+  g.add(arch);
+  const sill = box(w + 0.24, 0.06, 0.09, caseMat);
+  sill.position.set(0, yBot + 0.02, 0.01);
+  g.add(sill);
+  // Iron strap hinges and ring handle.
+  const iron = metal('#2f3136', 0.5);
+  for (const hy of [yBot + 0.42, yBot + 1.28]) {
+    const strap = box(0.3, 0.055, 0.015, iron);
+    strap.position.set(-w / 2 + 0.17, hy, 0.033);
+    g.add(strap);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.07, 4), iron);
+    tip.rotation.z = -Math.PI / 2;
+    tip.position.set(-w / 2 + 0.35, hy, 0.033);
+    g.add(tip);
+  }
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.011, 8, 18), iron);
+  ring.position.set(w / 2 - 0.16, yBot + 0.92, 0.05);
+  ring.rotation.x = 0.4;
+  g.add(ring);
+  const mount = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), iron);
+  mount.position.set(w / 2 - 0.16, yBot + 0.97, 0.035);
+  g.add(mount);
+  shadow(g);
+  return g;
+}
+
+function makeDutchDoor(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const w = 0.88, h = 2.0;
+  addCasing(g, w, h, wood('#e8e0d0', 0.6), 0.08, 0.07);
+  const slabMat = tint(wood(color));
+  // Open top half shows the outdoors.
+  const view = glassPane(w - 0.06, h / 2 - 0.02);
+  view.position.set(0, h / 4, -0.02);
+  g.add(view);
+  // Closed bottom half with a little ledge shelf.
+  const bottom = box(w, h / 2 - 0.02, 0.05, slabMat);
+  bottom.position.set(0, -h / 4, 0);
+  g.add(bottom);
+  const panel = box(w - 0.24, h / 2 - 0.3, 0.02, slabMat);
+  panel.position.set(0, -h / 4, 0.028);
+  g.add(panel);
+  const ledge = box(w + 0.08, 0.04, 0.1, wood('#e8e0d0', 0.6));
+  ledge.position.set(0, 0.01, 0.045);
+  g.add(ledge);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), metal('#c9a04a', 0.3));
+  knob.position.set(w / 2 - 0.1, -0.12, 0.055);
+  g.add(knob);
+  // Top leaf swung into the room on its left hinge.
+  const leaf = new THREE.Group();
+  leaf.position.set(-w / 2 + 0.02, h / 4, 0.05);
+  leaf.rotation.y = -1.0;
+  const leafSlab = box(w - 0.04, h / 2 - 0.06, 0.045, slabMat);
+  leafSlab.position.x = (w - 0.04) / 2;
+  leaf.add(leafSlab);
+  const leafPanel = box(w - 0.26, h / 2 - 0.28, 0.018, slabMat);
+  leafPanel.position.set((w - 0.04) / 2, 0, 0.032);
+  leaf.add(leafPanel);
+  g.add(leaf);
+  shadow(g);
+  return g;
+}
+
 function makeBalconyDoors(color: string): THREE.Group {
   const g = new THREE.Group();
   const w = 1.5, h = 2.1;
@@ -2238,6 +2393,10 @@ export const CATALOG: ItemDef[] = [
   // Wall
   { id: 'window', name: 'Sunny Window', cat: 'Wall', colors: ['#e8e0d0', '#b98a5e', '#6b4a2f'], make: makeSunnyWindow, wall: true },
   { id: 'door', name: 'Cottage Door', cat: 'Wall', colors: ['#b98a5e', '#6b4a2f', '#7d9471', '#5e7a94'], make: makeCottageDoor, wall: true, floorWall: true },
+  { id: 'modern-door', name: 'Modern Door', cat: 'Wall', colors: ['#3d3f45', '#e0d4bd', '#5e7a94', '#b0685e'], make: makeModernDoor, wall: true, floorWall: true },
+  { id: 'barn-door', name: 'Sliding Barn Door', cat: 'Wall', colors: ['#8a5a3a', '#b98a5e', '#6b4a2f'], make: makeBarnDoor, wall: true, floorWall: true },
+  { id: 'arched-door', name: 'Arched Door', cat: 'Wall', colors: ['#6b4a2f', '#8a5a3a', '#7d9471'], make: makeArchedDoor, wall: true, floorWall: true },
+  { id: 'dutch-door', name: 'Dutch Door', cat: 'Wall', colors: ['#7d9471', '#b0685e', '#5e7a94', '#e0d4bd'], make: makeDutchDoor, wall: true, floorWall: true },
   { id: 'balcony-doors', name: 'Balcony Doors', cat: 'Wall', colors: ['#f2e3c2', '#e8b0c8', '#a8c0cc'], make: makeBalconyDoors, wall: true, floorWall: true },
   { id: 'balcony', name: 'Door to Balcony', cat: 'Wall', colors: ['#f2ead9', '#3d3f45', '#7d9471'], make: makeBalcony, wall: true, floorWall: true },
   { id: 'frame', name: 'Sunset Print', cat: 'Wall', colors: ['#6b4a2f', '#e0d4bd', '#3d3f45'], make: makePictureFrame, wall: true },
@@ -2266,11 +2425,11 @@ export const CATEGORIES: Category[] = [
     ['chair', 'rocking-chair', 'desk', 'dining-table', 'coffee-table', 'side-table', 'nightstand',
      'bookshelf', 'low-bookcase', 'cube-storage', 'wardrobe', 'dresser', 'toybox', 'billy', 'billy-oxberg',
      'standing-desk', 'record-player', 'music-box', 'mantel-clock', 'standing-mirror', 'wall-shelf',
-     'clock', 'frame', 'frame-trio', 'door', 'speakers', 'snow-globe', 'window'],
+     'clock', 'frame', 'frame-trio', 'door', 'barn-door', 'arched-door', 'dutch-door', 'speakers', 'snow-globe', 'window'],
     ['wood', 'plain', 'metal']
   );
   assign(
-    ['plant', 'small-plant', 'fern', 'mushroom-pot', 'floor-lamp', 'table-lamp', 'candles', 'radio',
+    ['modern-door', 'plant', 'small-plant', 'fern', 'mushroom-pot', 'floor-lamp', 'table-lamp', 'candles', 'radio',
      'train', 'camera', 'dollhouse', 'desktop', 'keyboard', 'printer', 'rolling-drawers', 'radiator',
      'wall-ac', 'monitor', 'ultrawide', 'vase'],
     ['plain', 'wood', 'metal']
