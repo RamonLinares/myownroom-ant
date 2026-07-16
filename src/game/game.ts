@@ -1268,7 +1268,7 @@ export class RoomGame {
   private static readonly POWERED = new Set([
     'floor-lamp', 'table-lamp', 'paper-lantern', 'candles', 'lava-lamp', 'softbox',
     'fairy-lights', 'dollhouse', 'air-purifier', 'wall-ac', 'desktop',
-    'monitor', 'laptop', 'ultrawide', 'festive-tree', 'cake',
+    'monitor', 'laptop', 'ultrawide', 'festive-tree', 'cake', 'tv', 'crt-tv',
   ]);
 
   private interact(item: PlacedItem): void {
@@ -1279,7 +1279,7 @@ export class RoomGame {
       this.onToast(`${item.def.name} ${on ? 'on' : 'off'}`);
       return;
     }
-    if (['radio', 'record-player', 'speakers'].includes(id)) {
+    if (['radio', 'record-player', 'speakers', 'hifi'].includes(id)) {
       const playing = audio.toggleTune();
       this.wiggle(item, 0.03);
       this.onToast(playing ? `♪ ${item.def.name} playing` : 'Music off');

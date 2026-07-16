@@ -2313,6 +2313,127 @@ function makeBalcony(color: string): THREE.Group {
   return g;
 }
 
+// ------------------------------------------------------ media corner
+
+function makeFlatTV(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const frame = tint(matte(color, 0.45));
+  const panel = box(1.15, 0.66, 0.045, frame);
+  panel.position.y = 0.5;
+  g.add(panel);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.09, 0.6), screenMaterial());
+  screen.position.set(0, 0.5, 0.024);
+  g.add(screen);
+  const stem = box(0.09, 0.14, 0.06, frame);
+  stem.position.y = 0.1;
+  g.add(stem);
+  const foot = rounded(0.6, 0.03, 0.22, 0.015, frame);
+  foot.position.y = 0.018;
+  g.add(foot);
+  shadow(g);
+  return g;
+}
+
+function makeCrtTV(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const shell = tint(wood(color));
+  const body = rounded(0.62, 0.48, 0.46, 0.04, shell);
+  body.position.y = 0.32;
+  g.add(body);
+  const facePlate = box(0.56, 0.42, 0.02, matte('#d8d0c0', 0.7));
+  facePlate.position.set(0, 0.32, 0.235);
+  g.add(facePlate);
+  const bezel = rounded(0.42, 0.34, 0.015, 0.05, matte('#3a3c42', 0.5));
+  bezel.position.set(-0.05, 0.33, 0.24);
+  g.add(bezel);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.28), screenMaterial());
+  screen.position.set(-0.05, 0.33, 0.272);
+  g.add(screen);
+  for (const [i, y] of [0.42, 0.33, 0.24].entries()) {
+    const knob = cyl(0.022, 0.022, 0.025, metal('#c9a04a', 0.4), 10);
+    knob.rotation.x = Math.PI / 2;
+    knob.position.set(0.21, y, 0.25);
+    g.add(knob);
+    if (i === 2) {
+      for (let s = 0; s < 4; s++) {
+        const slit = box(0.09, 0.008, 0.01, matte('#8f8577', 0.7));
+        slit.position.set(0.21, 0.13 + s * 0.02, 0.246);
+        g.add(slit);
+      }
+    }
+  }
+  legSet(g, 0.54, 0.4, 0.08, 0.02, wood(WOOD_DARK), 0.03);
+  // Rabbit-ear antenna.
+  const antennaBase = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), matte('#3a3c42', 0.5));
+  antennaBase.position.set(0, 0.58, -0.05);
+  g.add(antennaBase);
+  for (const side of [-1, 1]) {
+    const ear = cyl(0.005, 0.005, 0.42, metal(METAL_GREY), 6);
+    ear.position.set(side * 0.1, 0.76, -0.05);
+    ear.rotation.z = side * 0.5;
+    g.add(ear);
+  }
+  shadow(g);
+  return g;
+}
+
+function makeHifiConsole(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const body = tint(wood(color));
+  const w = 1.5, h = 0.42, d = 0.44;
+  const cab = box(w, h, d, body);
+  cab.position.y = 0.4;
+  g.add(cab);
+  // Angled mid-century legs.
+  for (const [x, z] of [[-0.62, 0.15], [0.62, 0.15], [-0.62, -0.15], [0.62, -0.15]] as Array<[number, number]>) {
+    const leg = cyl(0.016, 0.024, 0.22, wood(WOOD_DARK), 8);
+    leg.position.set(x + (x > 0 ? 0.03 : -0.03), 0.1, z);
+    leg.rotation.z = x > 0 ? -0.12 : 0.12;
+    g.add(leg);
+  }
+  // Speaker fabric panels flanking a control strip.
+  const cloth = new THREE.MeshStandardMaterial({ color: '#d8d0be', map: fabricTexture, roughness: 0.95 });
+  for (const side of [-1, 1]) {
+    const grill = box(0.5, 0.3, 0.02, cloth);
+    grill.position.set(side * 0.46, 0.4, d / 2 + 0.005);
+    g.add(grill);
+  }
+  const strip = box(0.36, 0.3, 0.015, matte('#3a3c42', 0.5));
+  strip.position.set(0, 0.4, d / 2 + 0.002);
+  g.add(strip);
+  for (let i = 0; i < 3; i++) {
+    const knob = cyl(0.018, 0.018, 0.02, metal('#c9a04a', 0.35), 10);
+    knob.rotation.x = Math.PI / 2;
+    knob.position.set(-0.09 + i * 0.09, 0.34, d / 2 + 0.015);
+    g.add(knob);
+  }
+  const dial = box(0.28, 0.05, 0.012, new THREE.MeshStandardMaterial({ color: '#f2e3b8', emissive: '#e8c86a', emissiveIntensity: 0.4, roughness: 0.5 }));
+  dial.position.set(0, 0.47, d / 2 + 0.012);
+  g.add(dial);
+  // Turntable on top: platter, record, tonearm, tinted dust cover.
+  const platter = cyl(0.15, 0.15, 0.02, matte('#3a3c42', 0.45), 24);
+  platter.position.set(-0.42, 0.63, 0);
+  g.add(platter);
+  const record = cyl(0.13, 0.13, 0.012, matte('#1e1e22', 0.3), 24);
+  record.position.set(-0.42, 0.645, 0);
+  g.add(record);
+  const labelC = cyl(0.04, 0.04, 0.014, matte('#c96f4a', 0.6), 14);
+  labelC.position.set(-0.42, 0.646, 0);
+  g.add(labelC);
+  const armBase = cyl(0.018, 0.018, 0.05, metal(METAL_GREY), 8);
+  armBase.position.set(-0.24, 0.65, -0.14);
+  g.add(armBase);
+  const arm = box(0.15, 0.01, 0.012, metal(METAL_GREY));
+  arm.position.set(-0.31, 0.67, -0.08);
+  arm.rotation.y = 0.65;
+  g.add(arm);
+  const cover = box(0.42, 0.09, 0.36, new THREE.MeshStandardMaterial({ color: '#cfe0e8', transparent: true, opacity: 0.25, roughness: 0.1 }));
+  cover.position.set(-0.42, 0.66, 0);
+  g.add(cover);
+  shadow(g);
+  return g;
+}
+
 // ------------------------------------------------------ seasonal pack
 
 function makeBirthdayCake(color: string): THREE.Group {
@@ -2570,6 +2691,9 @@ export const CATALOG: ItemDef[] = [
   { id: 'speakers', name: 'Stereo Speakers', cat: 'Workspace', colors: WOODS, make: makeSpeakers },
   { id: 'printer', name: 'Home Printer', cat: 'Workspace', colors: ['#e0d4bd', '#2c2e33', '#9aa0a8'], make: makePrinter, stackable: true },
   // Decor
+  { id: 'tv', name: 'Flat-screen TV', cat: 'Decor', colors: ['#2c2e33', '#9aa0a8', '#e0d4bd'], make: makeFlatTV, stackable: true },
+  { id: 'crt-tv', name: 'Retro TV', cat: 'Decor', colors: ['#b98a5e', '#6b4a2f', '#e0d4bd'], make: makeCrtTV, stackable: true },
+  { id: 'hifi', name: 'Hi-Fi Console', cat: 'Decor', colors: ['#b98a5e', '#6b4a2f', '#e0d4bd'], make: makeHifiConsole, surface: true },
   { id: 'books', name: 'Story Books', cat: 'Decor', colors: ['#a24a3f', '#3f6ba2', '#7a5aa0'], make: makeBookStack, stackable: true },
   { id: 'vase', name: 'Jam-jar Flowers', cat: 'Decor', colors: ['#7ea8b8', '#e0d4bd', '#c96f4a'], make: makeVase, stackable: true },
   { id: 'standing-mirror', name: 'Standing Mirror', cat: 'Decor', colors: WOODS, make: makeStandingMirror },
@@ -2642,11 +2766,11 @@ export const CATEGORIES: Category[] = [
     ['chair', 'rocking-chair', 'desk', 'dining-table', 'coffee-table', 'side-table', 'nightstand',
      'bookshelf', 'low-bookcase', 'cube-storage', 'wardrobe', 'dresser', 'toybox', 'billy', 'billy-oxberg',
      'standing-desk', 'record-player', 'music-box', 'mantel-clock', 'standing-mirror', 'wall-shelf',
-     'clock', 'frame', 'frame-trio', 'door', 'barn-door', 'arched-door', 'dutch-door', 'speakers', 'snow-globe', 'window'],
+     'clock', 'frame', 'frame-trio', 'door', 'barn-door', 'arched-door', 'dutch-door', 'speakers', 'snow-globe', 'window', 'crt-tv', 'hifi'],
     ['wood', 'plain', 'metal']
   );
   assign(
-    ['modern-door', 'plant', 'small-plant', 'fern', 'mushroom-pot', 'floor-lamp', 'table-lamp', 'candles', 'radio',
+    ['modern-door', 'tv', 'plant', 'small-plant', 'fern', 'mushroom-pot', 'floor-lamp', 'table-lamp', 'candles', 'radio',
      'train', 'camera', 'dollhouse', 'desktop', 'keyboard', 'printer', 'rolling-drawers', 'radiator',
      'wall-ac', 'monitor', 'ultrawide', 'vase'],
     ['plain', 'wood', 'metal']
