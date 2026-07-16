@@ -1290,6 +1290,16 @@ export class RoomGame {
       this.wiggle(item, 0.05);
       return;
     }
+    if (id === 'piano') {
+      audio.piano();
+      return;
+    }
+    if (id === 'foosball') {
+      audio.rustle();
+      audio.squeak();
+      this.wiggle(item, 0.02);
+      return;
+    }
     if (id === 'clock' || id === 'mantel-clock') {
       audio.chime();
       this.wiggle(item, 0.02);

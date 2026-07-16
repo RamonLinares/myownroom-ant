@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { wood, fabric, matte, metal, rugTexture, fabricTexture, type MaterialKind } from './materials';
+import { wood, fabric, matte, metal, rugTexture, fabricTexture, leatherTexture, type MaterialKind } from './materials';
 
 export type Category =
   | 'Seating' | 'Beds' | 'Tables' | 'Storage' | 'Workspace'
-  | 'Decor' | 'Toys' | 'Lighting' | 'Plants' | 'Rugs' | 'Wall' | 'Seasonal';
+  | 'Decor' | 'Toys' | 'Lighting' | 'Plants' | 'Rugs' | 'Wall' | 'Seasonal' | 'Sitcom';
 
 export interface ItemDef {
   id: string;
@@ -2313,6 +2313,481 @@ function makeBalcony(color: string): THREE.Group {
   return g;
 }
 
+// ------------------------------------------------------ sitcom set pieces
+
+function makeOrangeSofa(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const body = tint(fabric(color));
+  const base = rounded(2.1, 0.5, 0.95, 0.1, body);
+  base.position.y = 0.36;
+  g.add(base);
+  const back = rounded(2.1, 0.72, 0.3, 0.12, body);
+  back.position.set(0, 0.82, -0.36);
+  back.rotation.x = -0.08;
+  g.add(back);
+  // Big rolled arms.
+  for (const side of [-1, 1]) {
+    const roll = cyl(0.17, 0.17, 0.9, body, 18);
+    roll.rotation.x = Math.PI / 2;
+    roll.position.set(side * 0.97, 0.66, 0);
+    g.add(roll);
+    const armBody = box(0.3, 0.4, 0.9, body);
+    armBody.position.set(side * 0.97, 0.4, 0);
+    g.add(armBody);
+  }
+  for (const sx of [-0.44, 0.44]) {
+    const cushion = rounded(0.84, 0.2, 0.78, 0.09, body);
+    cushion.position.set(sx, 0.66, 0.05);
+    g.add(cushion);
+    const pillow = rounded(0.56, 0.44, 0.18, 0.09, body);
+    pillow.position.set(sx, 0.94, -0.26);
+    pillow.rotation.x = -0.12;
+    g.add(pillow);
+  }
+  legSet(g, 2.0, 0.88, 0.11, 0.04, wood(WOOD_DARK));
+  shadow(g);
+  return g;
+}
+
+function makePeepholeFrame(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const frame = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.035, 10, 26), tint(matte(color, 0.5)));
+  frame.scale.y = 1.25;
+  g.add(frame);
+  const peephole = cyl(0.02, 0.02, 0.02, metal('#8a8478', 0.35), 12);
+  peephole.rotation.x = Math.PI / 2;
+  g.add(peephole);
+  shadow(g);
+  return g;
+}
+
+function makeFoosball(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const cab = tint(wood(color));
+  const bodyBox = box(1.15, 0.32, 0.72, cab);
+  bodyBox.position.y = 0.72;
+  g.add(bodyBox);
+  const pitch = box(1.05, 0.02, 0.62, matte('#4f8a58', 0.8));
+  pitch.position.y = 0.89;
+  g.add(pitch);
+  for (const [x, z] of [[-0.48, 0.27], [0.48, 0.27], [-0.48, -0.27], [0.48, -0.27]] as Array<[number, number]>) {
+    const leg = box(0.08, 0.56, 0.08, wood(WOOD_DARK));
+    leg.position.set(x, 0.28, z);
+    g.add(leg);
+  }
+  const rodMat = metal(METAL_GREY, 0.3);
+  const teamA = matte('#b03a3a', 0.5);
+  const teamB = matte('#3a5aa0', 0.5);
+  for (let r = 0; r < 4; r++) {
+    const x = -0.42 + r * 0.28;
+    const rod = cyl(0.012, 0.012, 0.94, rodMat, 8);
+    rod.rotation.x = Math.PI / 2;
+    rod.position.set(x, 0.95, 0);
+    g.add(rod);
+    for (const hz of [-0.47, 0.47]) {
+      const handle = cyl(0.025, 0.025, 0.09, matte('#26262a', 0.5), 8);
+      handle.rotation.x = Math.PI / 2;
+      handle.position.set(x, 0.95, hz);
+      g.add(handle);
+    }
+    for (let m = 0; m < 3; m++) {
+      const man = box(0.045, 0.11, 0.03, r % 2 ? teamA : teamB);
+      man.position.set(x, 0.93, -0.2 + m * 0.2);
+      g.add(man);
+    }
+  }
+  shadow(g);
+  return g;
+}
+
+function makeMenuBoard(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const frame = tint(wood(color));
+  const backer = box(0.66, 0.9, 0.03, frame);
+  g.add(backer);
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 176;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#26332c';
+  ctx.fillRect(0, 0, 128, 176);
+  // Chalk doodles: a steaming cup and squiggle "menu" lines (no words).
+  ctx.strokeStyle = 'rgba(240,238,230,0.9)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(38, 18, 40, 30);
+  ctx.beginPath();
+  ctx.arc(82, 33, 8, -1.2, 1.2);
+  ctx.stroke();
+  ctx.lineWidth = 2;
+  for (const sx of [48, 58, 68]) {
+    ctx.beginPath();
+    ctx.moveTo(sx, 14);
+    ctx.quadraticCurveTo(sx + 4, 8, sx, 2);
+    ctx.stroke();
+  }
+  for (let i = 0; i < 5; i++) {
+    const y = 70 + i * 20;
+    ctx.beginPath();
+    ctx.moveTo(14, y);
+    ctx.lineTo(14 + 55 + (i * 13) % 30, y);
+    ctx.moveTo(96, y);
+    ctx.lineTo(112, y);
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.8), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+  board.position.z = 0.017;
+  g.add(board);
+  shadow(g);
+  return g;
+}
+
+function makeDogStatue(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const china = tint(matte(color, 0.25));
+  const plinth = box(0.34, 0.06, 0.5, matte('#d8d4cc', 0.5));
+  plinth.position.y = 0.03;
+  g.add(plinth);
+  // Seated slim hound: haunches, upright chest, long neck and snout.
+  const haunch = new THREE.Mesh(new THREE.SphereGeometry(0.14, 14, 12), china);
+  haunch.scale.set(1, 0.85, 1.2);
+  haunch.position.set(0, 0.17, -0.1);
+  g.add(haunch);
+  const chest = cyl(0.07, 0.12, 0.45, china, 14);
+  chest.position.set(0, 0.42, 0.02);
+  chest.rotation.x = 0.18;
+  g.add(chest);
+  const neck = cyl(0.045, 0.06, 0.28, china, 12);
+  neck.position.set(0, 0.72, 0.06);
+  chest.rotation.x = 0.1;
+  g.add(neck);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.065, 12, 10), china);
+  head.position.set(0, 0.88, 0.08);
+  g.add(head);
+  const snout = cyl(0.028, 0.045, 0.14, china, 10);
+  snout.rotation.x = Math.PI / 2 - 0.25;
+  snout.position.set(0, 0.86, 0.17);
+  g.add(snout);
+  for (const side of [-1, 1]) {
+    const ear = box(0.03, 0.09, 0.05, china);
+    ear.position.set(side * 0.055, 0.93, 0.04);
+    ear.rotation.z = side * 0.25;
+    g.add(ear);
+    const forelegM = cyl(0.028, 0.032, 0.4, china, 10);
+    forelegM.position.set(side * 0.07, 0.22, 0.14);
+    g.add(forelegM);
+    const paw = box(0.06, 0.045, 0.12, china);
+    paw.position.set(side * 0.07, 0.045, 0.17);
+    g.add(paw);
+  }
+  const tail = cyl(0.018, 0.025, 0.3, china, 8);
+  tail.position.set(0.08, 0.12, -0.26);
+  tail.rotation.x = 1.2;
+  g.add(tail);
+  shadow(g);
+  return g;
+}
+
+/** Striped upholstery with a couple of tape patches, drawn once. */
+const reclinerTexture = (() => {
+  let tex: THREE.CanvasTexture | null = null;
+  return (): THREE.CanvasTexture => {
+    if (tex) return tex;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#cabc9c';
+    ctx.fillRect(0, 0, 128, 128);
+    for (let x = 0; x < 128; x += 22) {
+      ctx.fillStyle = '#8a705a';
+      ctx.fillRect(x, 0, 9, 128);
+      ctx.fillStyle = '#a89478';
+      ctx.fillRect(x + 14, 0, 4, 128);
+    }
+    tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+  };
+})();
+
+function makeRecliner(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const striped = tint(new THREE.MeshStandardMaterial({ color, map: reclinerTexture(), roughness: 0.92 }));
+  const base = rounded(0.92, 0.5, 0.9, 0.09, striped);
+  base.position.y = 0.34;
+  g.add(base);
+  const seat = rounded(0.62, 0.16, 0.6, 0.07, striped);
+  seat.position.set(0, 0.56, 0.06);
+  g.add(seat);
+  const back = rounded(0.86, 0.78, 0.28, 0.1, striped);
+  back.position.set(0, 0.86, -0.34);
+  back.rotation.x = -0.28;
+  g.add(back);
+  for (const side of [-1, 1]) {
+    const arm = rounded(0.22, 0.42, 0.8, 0.08, striped);
+    arm.position.set(side * 0.44, 0.62, 0.02);
+    g.add(arm);
+  }
+  // Footrest flipped out.
+  const footrest = rounded(0.56, 0.1, 0.34, 0.05, striped);
+  footrest.position.set(0, 0.38, 0.62);
+  footrest.rotation.x = 0.5;
+  g.add(footrest);
+  // Loyal tape patches.
+  const tape = matte('#9a9a94', 0.5);
+  const patch1 = box(0.16, 0.05, 0.24, tape);
+  patch1.position.set(0.45, 0.84, 0.05);
+  patch1.rotation.z = 0.15;
+  g.add(patch1);
+  const patch2 = box(0.14, 0.2, 0.02, tape);
+  patch2.position.set(-0.2, 0.95, -0.2);
+  patch2.rotation.x = -0.28;
+  patch2.rotation.z = 0.4;
+  g.add(patch2);
+  shadow(g);
+  return g;
+}
+
+function makeLoungeSet(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const shellMat = wood('#5a3c28', 0.4);
+  const leatherMat = tint(new THREE.MeshStandardMaterial({ color, map: leatherTexture, roughness: 0.45, metalness: 0.05 }));
+  const starBase = (x: number, z: number, s: number): void => {
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      const arm = box(0.24 * s, 0.03, 0.05, metal(METAL_GREY, 0.3));
+      arm.position.set(x + Math.cos(a) * 0.11 * s, 0.05, z + Math.sin(a) * 0.11 * s);
+      arm.rotation.y = -a;
+      g.add(arm);
+    }
+    const post = cyl(0.03, 0.035, 0.16, metal(METAL_GREY, 0.3), 10);
+    post.position.set(x, 0.14, z);
+    g.add(post);
+  };
+  // Chair: tilted shells with leather pads.
+  starBase(0, 0, 1);
+  const seatShell = rounded(0.62, 0.06, 0.6, 0.03, shellMat);
+  seatShell.position.set(0, 0.34, 0.02);
+  seatShell.rotation.x = 0.12;
+  g.add(seatShell);
+  const seatPad = rounded(0.54, 0.1, 0.52, 0.045, leatherMat);
+  seatPad.position.set(0, 0.42, 0.02);
+  seatPad.rotation.x = 0.12;
+  g.add(seatPad);
+  const backShell = rounded(0.6, 0.52, 0.06, 0.03, shellMat);
+  backShell.position.set(0, 0.68, -0.3);
+  backShell.rotation.x = -0.42;
+  g.add(backShell);
+  const backPad = rounded(0.52, 0.44, 0.1, 0.045, leatherMat);
+  backPad.position.set(0, 0.68, -0.26);
+  backPad.rotation.x = -0.42;
+  g.add(backPad);
+  const headShell = rounded(0.5, 0.24, 0.06, 0.03, shellMat);
+  headShell.position.set(0, 0.98, -0.42);
+  headShell.rotation.x = -0.5;
+  g.add(headShell);
+  const headPad = rounded(0.42, 0.18, 0.09, 0.04, leatherMat);
+  headPad.position.set(0, 0.98, -0.38);
+  headPad.rotation.x = -0.5;
+  g.add(headPad);
+  // Ottoman in front.
+  starBase(0.05, 0.78, 0.8);
+  const ottoShell = rounded(0.5, 0.05, 0.42, 0.025, shellMat);
+  ottoShell.position.set(0.05, 0.3, 0.78);
+  g.add(ottoShell);
+  const ottoPad = rounded(0.44, 0.1, 0.36, 0.045, leatherMat);
+  ottoPad.position.set(0.05, 0.38, 0.78);
+  g.add(ottoPad);
+  shadow(g);
+  return g;
+}
+
+function makePiano(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const gloss = tint(matte(color, 0.25));
+  // Body: a wing-ish silhouette from a rounded slab plus a curved bout.
+  const bodySlab = rounded(1.35, 0.3, 0.9, 0.1, gloss);
+  bodySlab.position.y = 0.85;
+  g.add(bodySlab);
+  const bout = cyl(0.44, 0.44, 0.3, gloss, 24);
+  bout.position.set(-0.35, 0.85, -0.25);
+  g.add(bout);
+  // Raised lid, propped open.
+  const lid = rounded(1.3, 0.04, 0.85, 0.04, gloss);
+  lid.position.set(0.05, 1.28, -0.28);
+  lid.rotation.x = 0.55;
+  g.add(lid);
+  const prop = cyl(0.015, 0.015, 0.52, gloss, 8);
+  prop.position.set(0.45, 1.18, -0.1);
+  prop.rotation.x = -0.4;
+  g.add(prop);
+  // Keyboard.
+  const keybed = box(1.0, 0.06, 0.24, gloss);
+  keybed.position.set(0, 0.78, 0.55);
+  g.add(keybed);
+  const keys = box(0.94, 0.02, 0.18, matte('#f6f3ec', 0.35));
+  keys.position.set(0, 0.815, 0.56);
+  g.add(keys);
+  for (let i = 0; i < 12; i++) {
+    const black = box(0.03, 0.022, 0.09, matte('#1c1c20', 0.3));
+    black.position.set(-0.42 + i * 0.077, 0.825, 0.52);
+    g.add(black);
+  }
+  // Legs and pedals.
+  for (const [x, z] of [[-0.6, -0.25], [0.55, 0.42], [0.55, -0.5]] as Array<[number, number]>) {
+    const leg = cyl(0.035, 0.045, 0.72, gloss, 10);
+    leg.position.set(x, 0.36, z);
+    g.add(leg);
+  }
+  const pedals = box(0.2, 0.04, 0.1, metal('#c9a04a', 0.35));
+  pedals.position.set(0, 0.12, 0.3);
+  g.add(pedals);
+  const lyre = box(0.03, 0.5, 0.03, gloss);
+  lyre.position.set(0, 0.4, 0.3);
+  g.add(lyre);
+  // Bench.
+  const benchTop = rounded(0.6, 0.07, 0.32, 0.03, gloss);
+  benchTop.position.set(0, 0.5, 1.0);
+  g.add(benchTop);
+  legSet(g, 0.52, 0.26, 0.46, 0.022, gloss, 0.02);
+  for (const c of g.children.slice(-4)) c.position.z += 1.0;
+  shadow(g);
+  return g;
+}
+
+function makeTelescope(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const brass = tint(metal(color, 0.3));
+  const dark = matte('#3a3c42', 0.5);
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2 + 0.5;
+    const leg = cyl(0.012, 0.016, 0.95, wood(WOOD_DARK), 8);
+    leg.position.set(Math.cos(a) * 0.24, 0.44, Math.sin(a) * 0.24);
+    leg.rotation.z = Math.cos(a) * 0.5;
+    leg.rotation.x = -Math.sin(a) * 0.5;
+    g.add(leg);
+  }
+  const hub = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), dark);
+  hub.position.y = 0.9;
+  g.add(hub);
+  const tube = cyl(0.05, 0.065, 0.7, brass, 14);
+  tube.position.set(0, 1.05, 0.1);
+  tube.rotation.x = Math.PI / 2 - 0.5;
+  g.add(tube);
+  const hood = cyl(0.07, 0.07, 0.1, brass, 14);
+  hood.position.set(0, 1.2, 0.38);
+  hood.rotation.x = Math.PI / 2 - 0.5;
+  g.add(hood);
+  const eyepiece = cyl(0.02, 0.025, 0.09, dark, 10);
+  eyepiece.position.set(0, 0.92, -0.16);
+  eyepiece.rotation.x = Math.PI / 2 - 0.5;
+  g.add(eyepiece);
+  shadow(g);
+  return g;
+}
+
+function makeWallBike(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const frameMat = tint(matte(color, 0.45));
+  const tire = matte('#26262a', 0.6);
+  for (const wx of [-0.42, 0.42]) {
+    const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.028, 10, 26), tire);
+    wheel.position.set(wx, -0.12, 0);
+    g.add(wheel);
+    const hubDot = cyl(0.02, 0.02, 0.03, metal(METAL_GREY), 10);
+    hubDot.rotation.x = Math.PI / 2;
+    hubDot.position.set(wx, -0.12, 0);
+    g.add(hubDot);
+    for (let s = 0; s < 6; s++) {
+      const a = (s / 6) * Math.PI;
+      const spoke = cyl(0.004, 0.004, 0.44, metal(METAL_GREY), 4);
+      spoke.position.set(wx, -0.12, 0);
+      spoke.rotation.z = a;
+      g.add(spoke);
+    }
+  }
+  const bar = (x0: number, y0: number, x1: number, y1: number): void => {
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    const tubeSeg = cyl(0.018, 0.018, len, frameMat, 8);
+    tubeSeg.position.set((x0 + x1) / 2, (y0 + y1) / 2, 0);
+    tubeSeg.rotation.z = Math.atan2(y1 - y0, x1 - x0) + Math.PI / 2;
+    g.add(tubeSeg);
+  };
+  bar(-0.42, -0.12, -0.1, 0.16);   // seat tube-ish
+  bar(-0.1, 0.16, 0.34, 0.14);     // top tube
+  bar(-0.1, 0.16, 0.05, -0.14);    // seat stay down
+  bar(0.05, -0.14, 0.34, 0.14);    // down tube
+  bar(0.05, -0.14, -0.42, -0.12);  // chain stay
+  bar(0.34, 0.14, 0.42, -0.12);    // fork
+  const crank = cyl(0.05, 0.05, 0.025, metal('#3a3c42', 0.4), 12);
+  crank.rotation.x = Math.PI / 2;
+  crank.position.set(0.05, -0.14, 0);
+  g.add(crank);
+  const saddle = box(0.16, 0.04, 0.06, matte('#3a2c22', 0.6));
+  saddle.position.set(-0.14, 0.24, 0);
+  g.add(saddle);
+  const seatpost = cyl(0.012, 0.012, 0.08, metal(METAL_GREY), 6);
+  seatpost.position.set(-0.11, 0.19, 0);
+  g.add(seatpost);
+  const handlebar = box(0.05, 0.03, 0.2, metal('#3a3c42', 0.4));
+  handlebar.position.set(0.37, 0.2, 0);
+  g.add(handlebar);
+  const stem = cyl(0.012, 0.012, 0.08, metal(METAL_GREY), 6);
+  stem.position.set(0.35, 0.17, 0);
+  g.add(stem);
+  shadow(g);
+  return g;
+}
+
+function makeFridge(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const shell = tint(matte(color, 0.35));
+  const body = rounded(0.72, 1.55, 0.68, 0.07, shell);
+  body.position.y = 0.82;
+  g.add(body);
+  const seam = box(0.68, 0.015, 0.02, matte('#8f8c86', 0.5));
+  seam.position.set(0, 1.12, 0.345);
+  g.add(seam);
+  const chrome = metal('#d8dce0', 0.2);
+  for (const [y, h] of [[0.7, 0.55], [1.32, 0.28]] as Array<[number, number]>) {
+    const handle = cyl(0.02, 0.02, h, chrome, 10);
+    handle.position.set(0.26, y, 0.38);
+    g.add(handle);
+  }
+  const badge = cyl(0.035, 0.035, 0.012, chrome, 14);
+  badge.rotation.x = Math.PI / 2;
+  badge.position.set(0, 1.35, 0.35);
+  g.add(badge);
+  const plinth = box(0.62, 0.08, 0.56, matte('#3a3c42', 0.6));
+  plinth.position.y = 0.04;
+  g.add(plinth);
+  shadow(g);
+  return g;
+}
+
+function makeCerealBoxes(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const fronts: Array<[string, string]> = [[color, '#f2e3b8'], ['#3a5aa0', '#e8b0c8'], ['#4f8a58', '#c9a04a']];
+  for (const [i, [w, h]] of ([[0.14, 0.24], [0.13, 0.21], [0.15, 0.19]] as Array<[number, number]>).entries()) {
+    const x = -0.16 + i * 0.16;
+    const boxMat = i === 0 ? tint(matte(fronts[i][0], 0.7)) : matte(fronts[i][0], 0.7);
+    const carton = box(w, h, 0.055, boxMat);
+    carton.position.set(x, h / 2, 0);
+    carton.rotation.y = (i - 1) * 0.15;
+    g.add(carton);
+    // Simple label art: a colored disc, no words.
+    const disc = cyl(w * 0.28, w * 0.28, 0.01, matte(fronts[i][1], 0.6), 14);
+    disc.rotation.x = Math.PI / 2;
+    disc.position.set(x, h * 0.62, 0.03);
+    disc.rotation.z = (i - 1) * 0.15;
+    g.add(disc);
+  }
+  shadow(g);
+  return g;
+}
+
 // ------------------------------------------------------ media corner
 
 function makeFlatTV(color: string): THREE.Group {
@@ -2723,6 +3198,19 @@ export const CATALOG: ItemDef[] = [
   // Rugs
   { id: 'round-rug', name: 'Round Braided Rug', cat: 'Rugs', colors: ['#b8907a', '#7d9471', '#5e7a94', '#a8788a'], make: makeRoundRug, rug: true },
   { id: 'rect-rug', name: 'Area Rug', cat: 'Rugs', colors: ['#b8907a', '#7d9471', '#5e7a94', '#a8788a'], make: makeRectRug, rug: true },
+  // Sitcom living rooms
+  { id: 'orange-sofa', name: 'Big Café Sofa', cat: 'Sitcom', colors: ['#c96f32', '#b0685e', '#7d9471'], make: makeOrangeSofa },
+  { id: 'peephole-frame', name: 'Peephole Frame', cat: 'Sitcom', colors: ['#e8c832', '#c96f4a', '#7ea8b8'], make: makePeepholeFrame, wall: true },
+  { id: 'foosball', name: 'Table Football', cat: 'Sitcom', colors: ['#b98a5e', '#6b4a2f', '#3d3f45'], make: makeFoosball, surface: true },
+  { id: 'menu-board', name: 'Café Chalkboard', cat: 'Sitcom', colors: ['#b98a5e', '#6b4a2f', '#3d3f45'], make: makeMenuBoard, wall: true },
+  { id: 'dog-statue', name: 'Porcelain Hound', cat: 'Sitcom', colors: ['#f2f0ec', '#c9b48a', '#3d3f45'], make: makeDogStatue },
+  { id: 'recliner', name: 'Well-Worn Recliner', cat: 'Sitcom', colors: ['#cabc9c', '#9a8a72', '#8a9a94'], make: makeRecliner },
+  { id: 'lounge-set', name: 'Leather Lounge Set', cat: 'Sitcom', colors: ['#4a3428', '#26262a', '#7a5a42'], make: makeLoungeSet, materials: ['leather', 'fabric', 'plain'] },
+  { id: 'piano', name: 'Baby Grand Piano', cat: 'Sitcom', colors: ['#1c1c20', '#f2f0ec', '#6b4a2f'], make: makePiano, surface: true },
+  { id: 'telescope', name: 'Brass Telescope', cat: 'Sitcom', colors: ['#c9a04a', '#8f9299', '#3d3f45'], make: makeTelescope },
+  { id: 'wall-bike', name: 'Wall-Hung Bicycle', cat: 'Sitcom', colors: ['#4f8a58', '#c96f4a', '#5e7a94'], make: makeWallBike, wall: true },
+  { id: 'fridge', name: 'Retro Fridge', cat: 'Sitcom', colors: ['#a8d8c8', '#f2f0ec', '#e8b0c8'], make: makeFridge, surface: true },
+  { id: 'cereal-boxes', name: 'Cereal Box Trio', cat: 'Sitcom', colors: ['#c96f4a', '#c9a04a', '#7ea8b8'], make: makeCerealBoxes, stackable: true },
   // Seasonal
   { id: 'cake', name: 'Birthday Cake', cat: 'Seasonal', colors: ['#e8b0c8', '#7ea8b8', '#c9e0a0'], make: makeBirthdayCake, stackable: true },
   { id: 'balloons', name: 'Balloon Bunch', cat: 'Seasonal', colors: ['#e8b0c8', '#c94f4f', '#7ea8b8'], make: makeBalloons },
@@ -2747,7 +3235,7 @@ export const CATALOG: ItemDef[] = [
 ];
 
 export const CATEGORIES: Category[] = [
-  'Seating', 'Beds', 'Tables', 'Storage', 'Workspace', 'Decor', 'Toys', 'Lighting', 'Plants', 'Rugs', 'Wall', 'Seasonal',
+  'Seating', 'Beds', 'Tables', 'Storage', 'Workspace', 'Decor', 'Toys', 'Lighting', 'Plants', 'Rugs', 'Wall', 'Seasonal', 'Sitcom',
 ];
 
 // Finish options per item; the first entry matches the factory's native look.
@@ -2759,23 +3247,23 @@ export const CATEGORIES: Category[] = [
     }
   };
   assign(
-    ['sofa', 'corner-sofa', 'armchair', 'ottoman', 'cushion', 'bed', 'canopy-bed', 'desk-chair', 'ergo-chair', 'teddy', 'basket'],
+    ['sofa', 'corner-sofa', 'armchair', 'ottoman', 'cushion', 'bed', 'canopy-bed', 'desk-chair', 'ergo-chair', 'teddy', 'basket', 'orange-sofa', 'recliner'],
     ['fabric', 'leather', 'plain']
   );
   assign(
     ['chair', 'rocking-chair', 'desk', 'dining-table', 'coffee-table', 'side-table', 'nightstand',
      'bookshelf', 'low-bookcase', 'cube-storage', 'wardrobe', 'dresser', 'toybox', 'billy', 'billy-oxberg',
      'standing-desk', 'record-player', 'music-box', 'mantel-clock', 'standing-mirror', 'wall-shelf',
-     'clock', 'frame', 'frame-trio', 'door', 'barn-door', 'arched-door', 'dutch-door', 'speakers', 'snow-globe', 'window', 'crt-tv', 'hifi'],
+     'clock', 'frame', 'frame-trio', 'door', 'barn-door', 'arched-door', 'dutch-door', 'speakers', 'snow-globe', 'window', 'crt-tv', 'hifi', 'foosball', 'menu-board'],
     ['wood', 'plain', 'metal']
   );
   assign(
-    ['modern-door', 'tv', 'plant', 'small-plant', 'fern', 'mushroom-pot', 'floor-lamp', 'table-lamp', 'candles', 'radio',
+    ['modern-door', 'tv', 'piano', 'dog-statue', 'fridge', 'wall-bike', 'plant', 'small-plant', 'fern', 'mushroom-pot', 'floor-lamp', 'table-lamp', 'candles', 'radio',
      'train', 'camera', 'dollhouse', 'desktop', 'keyboard', 'printer', 'rolling-drawers', 'radiator',
      'wall-ac', 'monitor', 'ultrawide', 'vase'],
     ['plain', 'wood', 'metal']
   );
-  assign(['filing-cabinet', 'laptop', 'globe'], ['metal', 'plain', 'wood']);
+  assign(['filing-cabinet', 'laptop', 'globe', 'telescope'], ['metal', 'plain', 'wood']);
 }
 
 export function getDef(id: string): ItemDef | undefined {

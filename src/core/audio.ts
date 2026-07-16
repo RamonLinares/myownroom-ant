@@ -60,6 +60,16 @@ class GameAudio {
   squeak(): void { this.tone(850, 0.09, 'triangle', 0.05, 1500); }
   creak(): void { this.tone(190, 0.32, 'sawtooth', 0.02, 120); }
   chime(): void { this.tone(880, 0.5, 'sine', 0.05); setTimeout(() => this.tone(660, 0.6, 'sine', 0.05), 380); }
+  piano(): void {
+    // A little arpeggiated chord with a soft octave on top.
+    [262, 330, 392, 523].forEach((f, i) =>
+      setTimeout(() => {
+        this.tone(f, 0.6, 'triangle', 0.05);
+        this.tone(f * 2, 0.5, 'sine', 0.02);
+      }, i * 130)
+    );
+  }
+
   musicBox(): void {
     [1047, 1319, 1568, 2093, 1568, 1319, 1047, 784].forEach((f, i) => setTimeout(() => this.tone(f, 0.4, 'triangle', 0.035), i * 200));
   }
