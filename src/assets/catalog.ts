@@ -2622,52 +2622,70 @@ function makeLoungeSet(color: string): THREE.Group {
 function makePiano(color: string): THREE.Group {
   const g = new THREE.Group();
   const gloss = tint(matte(color, 0.25));
-  // Body: a wing-ish silhouette from a rounded slab plus a curved bout.
-  const bodySlab = rounded(1.35, 0.3, 0.9, 0.1, gloss);
-  bodySlab.position.y = 0.85;
-  g.add(bodySlab);
-  const bout = cyl(0.44, 0.44, 0.3, gloss, 24);
-  bout.position.set(-0.35, 0.85, -0.25);
-  g.add(bout);
-  // Raised lid, propped open.
-  const lid = rounded(1.3, 0.04, 0.85, 0.04, gloss);
-  lid.position.set(0.05, 1.28, -0.28);
-  lid.rotation.x = 0.55;
+  // Wing-shaped plan shared by the body rim and the lid: straight spine on
+  // the right, straight keyboard edge at the front, curved tail on the left.
+  const plan = new THREE.Shape();
+  plan.moveTo(0.68, 0.45);
+  plan.lineTo(-0.35, 0.45);
+  plan.absarc(-0.35, 0, 0.45, Math.PI / 2, Math.PI * 1.5, false);
+  plan.lineTo(0.4, -0.45);
+  plan.quadraticCurveTo(0.68, -0.45, 0.68, -0.18);
+  plan.closePath();
+
+  const bodyGeo = new THREE.ExtrudeGeometry(plan, {
+    depth: 0.3, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 2, curveSegments: 24,
+  });
+  bodyGeo.rotateX(Math.PI / 2);
+  const body = new THREE.Mesh(bodyGeo, gloss);
+  body.position.y = 1.0;
+  g.add(body);
+
+  // The lid is the same wing shape, hinged along the spine and propped open.
+  const lidGeo = new THREE.ExtrudeGeometry(plan, { depth: 0.035, bevelEnabled: false, curveSegments: 24 });
+  lidGeo.translate(-0.68, 0, 0);
+  lidGeo.rotateX(Math.PI / 2);
+  const lid = new THREE.Mesh(lidGeo, gloss);
+  lid.position.set(0.68, 1.05, 0);
+  lid.rotation.z = -0.42;
   g.add(lid);
-  const prop = cyl(0.015, 0.015, 0.52, gloss, 8);
-  prop.position.set(0.45, 1.18, -0.1);
-  prop.rotation.x = -0.4;
+  const prop = cyl(0.015, 0.015, 0.5, gloss, 8);
+  prop.position.set(-0.3, 1.24, 0.02);
+  prop.rotation.z = 0.3;
   g.add(prop);
-  // Keyboard.
-  const keybed = box(1.0, 0.06, 0.24, gloss);
-  keybed.position.set(0, 0.78, 0.55);
+
+  // Keyboard along the straight front edge.
+  const keybed = box(0.9, 0.06, 0.24, gloss);
+  keybed.position.set(0.12, 0.88, 0.55);
   g.add(keybed);
-  const keys = box(0.94, 0.02, 0.18, matte('#f6f3ec', 0.35));
-  keys.position.set(0, 0.815, 0.56);
+  const keys = box(0.84, 0.02, 0.18, matte('#f6f3ec', 0.35));
+  keys.position.set(0.12, 0.915, 0.56);
   g.add(keys);
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 11; i++) {
     const black = box(0.03, 0.022, 0.09, matte('#1c1c20', 0.3));
-    black.position.set(-0.42 + i * 0.077, 0.825, 0.52);
+    black.position.set(-0.23 + i * 0.07, 0.925, 0.52);
     g.add(black);
   }
-  // Legs and pedals.
-  for (const [x, z] of [[-0.6, -0.25], [0.55, 0.42], [0.55, -0.5]] as Array<[number, number]>) {
-    const leg = cyl(0.035, 0.045, 0.72, gloss, 10);
-    leg.position.set(x, 0.36, z);
+  // Three legs: both front corners plus one under the tail.
+  for (const [x, z] of [[-0.5, 0.32], [0.55, 0.32], [-0.35, -0.32]] as Array<[number, number]>) {
+    const leg = cyl(0.035, 0.048, 0.7, gloss, 10);
+    leg.position.set(x, 0.35, z);
     g.add(leg);
   }
   const pedals = box(0.2, 0.04, 0.1, metal('#c9a04a', 0.35));
-  pedals.position.set(0, 0.12, 0.3);
+  pedals.position.set(0.12, 0.12, 0.42);
   g.add(pedals);
-  const lyre = box(0.03, 0.5, 0.03, gloss);
-  lyre.position.set(0, 0.4, 0.3);
+  const lyre = box(0.03, 0.56, 0.03, gloss);
+  lyre.position.set(0.12, 0.42, 0.38);
   g.add(lyre);
   // Bench.
   const benchTop = rounded(0.6, 0.07, 0.32, 0.03, gloss);
-  benchTop.position.set(0, 0.5, 1.0);
+  benchTop.position.set(0.12, 0.5, 1.05);
   g.add(benchTop);
   legSet(g, 0.52, 0.26, 0.46, 0.022, gloss, 0.02);
-  for (const c of g.children.slice(-4)) c.position.z += 1.0;
+  for (const c of g.children.slice(-4)) {
+    c.position.z += 1.05;
+    c.position.x += 0.12;
+  }
   shadow(g);
   return g;
 }
