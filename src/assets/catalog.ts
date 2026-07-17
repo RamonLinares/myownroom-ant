@@ -2622,69 +2622,115 @@ function makeLoungeSet(color: string): THREE.Group {
 function makePiano(color: string): THREE.Group {
   const g = new THREE.Group();
   const gloss = tint(matte(color, 0.25));
-  // Wing-shaped plan shared by the body rim and the lid: straight spine on
-  // the right, straight keyboard edge at the front, curved tail on the left.
+  // Grand plan: straight spine on the right, straight keyboard edge at the
+  // front, and an S-curved treble side — bulge, concave waist, rounded tail.
   const plan = new THREE.Shape();
-  plan.moveTo(0.68, 0.45);
-  plan.lineTo(-0.35, 0.45);
-  plan.absarc(-0.35, 0, 0.45, Math.PI / 2, Math.PI * 1.5, false);
-  plan.lineTo(0.4, -0.45);
-  plan.quadraticCurveTo(0.68, -0.45, 0.68, -0.18);
+  plan.moveTo(0.68, 0.5);
+  plan.lineTo(-0.55, 0.5);
+  plan.lineTo(-0.55, 0.26);
+  plan.bezierCurveTo(-0.56, 0.02, -0.42, -0.04, -0.28, -0.14);
+  plan.bezierCurveTo(-0.1, -0.27, -0.02, -0.6, 0.2, -0.7);
+  plan.quadraticCurveTo(0.66, -0.8, 0.68, -0.38);
   plan.closePath();
 
   const bodyGeo = new THREE.ExtrudeGeometry(plan, {
-    depth: 0.3, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 2, curveSegments: 24,
+    depth: 0.3, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 2, curveSegments: 28,
   });
   bodyGeo.rotateX(Math.PI / 2);
   const body = new THREE.Mesh(bodyGeo, gloss);
   body.position.y = 1.0;
   g.add(body);
 
-  // The lid is the same wing shape, hinged along the spine and propped open.
-  const lidGeo = new THREE.ExtrudeGeometry(plan, { depth: 0.035, bevelEnabled: false, curveSegments: 24 });
+  // Amber interior with strings, visible under the open lid.
+  const innerGeo = new THREE.ShapeGeometry(plan, 24);
+  innerGeo.rotateX(Math.PI / 2);
+  innerGeo.scale(0.9, 1, 0.9);
+  const inner = new THREE.Mesh(innerGeo, new THREE.MeshStandardMaterial({ color: '#b8863c', roughness: 0.6, side: THREE.DoubleSide }));
+  inner.position.set(0.01, 0.965, -0.03);
+  g.add(inner);
+  const stringMat = matte('#6e5024', 0.4);
+  for (let i = 0; i < 8; i++) {
+    const len = 0.95 - i * 0.07;
+    const wire = box(0.006, 0.004, len, stringMat);
+    wire.position.set(0.52 - i * 0.12, 0.972, 0.3 - len / 2);
+    wire.rotation.y = -0.08 * i;
+    g.add(wire);
+  }
+  const bridge = box(0.5, 0.012, 0.03, matte('#4a3418', 0.5));
+  bridge.position.set(0.12, 0.972, -0.18);
+  bridge.rotation.y = 0.5;
+  g.add(bridge);
+
+  // Lid: the same wing shape, hinged along the spine and propped open.
+  const lidGeo = new THREE.ExtrudeGeometry(plan, { depth: 0.035, bevelEnabled: false, curveSegments: 28 });
   lidGeo.translate(-0.68, 0, 0);
   lidGeo.rotateX(Math.PI / 2);
   const lid = new THREE.Mesh(lidGeo, gloss);
-  lid.position.set(0.68, 1.05, 0);
+  lid.position.set(0.68, 1.06, 0);
   lid.rotation.z = -0.42;
   g.add(lid);
-  const prop = cyl(0.015, 0.015, 0.5, gloss, 8);
-  prop.position.set(-0.3, 1.24, 0.02);
-  prop.rotation.z = 0.3;
+  const prop = cyl(0.014, 0.014, 0.48, gloss, 8);
+  prop.position.set(-0.22, 1.24, -0.05);
+  prop.rotation.z = 0.32;
   g.add(prop);
 
-  // Keyboard along the straight front edge.
-  const keybed = box(0.9, 0.06, 0.24, gloss);
-  keybed.position.set(0.12, 0.88, 0.55);
+  // Keyboard shelf across the full front, with cheek blocks and a key slip.
+  const keybed = box(1.23, 0.07, 0.26, gloss);
+  keybed.position.set(0.065, 0.9, 0.6);
   g.add(keybed);
-  const keys = box(0.84, 0.02, 0.18, matte('#f6f3ec', 0.35));
-  keys.position.set(0.12, 0.915, 0.56);
+  const keys = box(1.05, 0.02, 0.17, matte('#f6f3ec', 0.35));
+  keys.position.set(0.065, 0.945, 0.59);
   g.add(keys);
-  for (let i = 0; i < 11; i++) {
+  for (let i = 0; i < 14; i++) {
     const black = box(0.03, 0.022, 0.09, matte('#1c1c20', 0.3));
-    black.position.set(-0.23 + i * 0.07, 0.925, 0.52);
+    black.position.set(-0.42 + i * 0.075, 0.955, 0.555);
     g.add(black);
   }
-  // Three legs: both front corners plus one under the tail.
-  for (const [x, z] of [[-0.5, 0.32], [0.55, 0.32], [-0.35, -0.32]] as Array<[number, number]>) {
-    const leg = cyl(0.035, 0.048, 0.7, gloss, 10);
-    leg.position.set(x, 0.35, z);
-    g.add(leg);
+  for (const side of [-0.55, 0.68]) {
+    const cheek = box(0.11, 0.085, 0.26, gloss);
+    cheek.position.set(side, 0.955, 0.6);
+    g.add(cheek);
   }
-  const pedals = box(0.2, 0.04, 0.1, metal('#c9a04a', 0.35));
-  pedals.position.set(0.12, 0.12, 0.42);
-  g.add(pedals);
-  const lyre = box(0.03, 0.56, 0.03, gloss);
-  lyre.position.set(0.12, 0.42, 0.38);
-  g.add(lyre);
+  // Music desk leaning behind the keys.
+  const desk = box(0.72, 0.24, 0.02, gloss);
+  desk.position.set(0.065, 1.1, 0.32);
+  desk.rotation.x = -0.45;
+  g.add(desk);
+
+  // Tapered square legs with brass casters: front corners plus the tail.
+  const brass = metal('#c9a04a', 0.3);
+  for (const [x, z] of [[-0.48, 0.4], [0.6, 0.4], [0.42, -0.52]] as Array<[number, number]>) {
+    const leg = cyl(0.045, 0.028, 0.62, gloss, 4);
+    leg.rotation.y = Math.PI / 4;
+    leg.position.set(x, 0.39, z);
+    g.add(leg);
+    const caster = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), brass);
+    caster.position.set(x, 0.05, z);
+    g.add(caster);
+  }
+  // Pedal lyre: two angled rods down to a brass pedal box.
+  for (const side of [-1, 1]) {
+    const rod = cyl(0.014, 0.014, 0.56, gloss, 8);
+    rod.position.set(0.065 + side * 0.09, 0.42, 0.36);
+    rod.rotation.z = side * 0.14;
+    g.add(rod);
+  }
+  const pedalBox = box(0.22, 0.06, 0.1, gloss);
+  pedalBox.position.set(0.065, 0.14, 0.36);
+  g.add(pedalBox);
+  for (let i = 0; i < 3; i++) {
+    const pedal = box(0.03, 0.015, 0.07, brass);
+    pedal.position.set(0.005 + i * 0.06, 0.11, 0.41);
+    g.add(pedal);
+  }
   // Bench.
   const benchTop = rounded(0.6, 0.07, 0.32, 0.03, gloss);
-  benchTop.position.set(0.12, 0.5, 1.05);
+  benchTop.position.set(0.065, 0.5, 1.15);
   g.add(benchTop);
   legSet(g, 0.52, 0.26, 0.46, 0.022, gloss, 0.02);
   for (const c of g.children.slice(-4)) {
-    c.position.z += 1.05;
-    c.position.x += 0.12;
+    c.position.z += 1.15;
+    c.position.x += 0.065;
   }
   shadow(g);
   return g;
