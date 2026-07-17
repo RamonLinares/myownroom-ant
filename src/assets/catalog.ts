@@ -2691,11 +2691,14 @@ function makePiano(color: string): THREE.Group {
     cheek.position.set(side, 0.955, 0.6);
     g.add(cheek);
   }
-  // Music desk leaning behind the keys.
-  const desk = box(0.72, 0.24, 0.02, gloss);
-  desk.position.set(0.065, 1.1, 0.32);
-  desk.rotation.x = -0.45;
+  // Music desk leaning right behind the keys, clear of the raised lid.
+  const desk = box(0.62, 0.2, 0.02, gloss);
+  desk.position.set(0, 1.03, 0.45);
+  desk.rotation.x = -0.42;
   g.add(desk);
+  const deskLedge = box(0.62, 0.02, 0.035, gloss);
+  deskLedge.position.set(0, 0.945, 0.485);
+  g.add(deskLedge);
 
   // Tapered square legs with brass casters: front corners plus the tail.
   const brass = metal('#c9a04a', 0.3);
