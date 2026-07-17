@@ -2735,8 +2735,12 @@ function makePiano(color: string): THREE.Group {
     c.position.z += 1.15;
     c.position.x += 0.065;
   }
-  shadow(g);
-  return g;
+  // Mirror the whole build: the lid hinge conventionally sits on the other side.
+  const piano = new THREE.Group();
+  g.scale.x = -1;
+  piano.add(g);
+  shadow(piano);
+  return piano;
 }
 
 function makeTelescope(color: string): THREE.Group {
