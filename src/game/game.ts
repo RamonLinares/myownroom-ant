@@ -1782,6 +1782,18 @@ export class RoomGame {
     return true;
   }
 
+  /** Links an unlinked door here to another room, and one there back to here. */
+  connectRooms(otherId: string): void {
+    if (otherId === this.home.activeId) return;
+    const other = this.home.rooms.find((r) => r.id === otherId);
+    if (!other) return;
+    const mine = this.items.find((i) => RoomGame.DOORS.has(i.def.id) && !i.link);
+    if (mine) mine.link = otherId;
+    const theirs = other.data.items.find((s) => RoomGame.DOORS.has(s.def) && !s.link);
+    if (theirs) theirs.link = this.home.activeId;
+    this.scheduleSave();
+  }
+
   /** Points the selected door at another room (or nowhere). */
   setLinkSelected(roomId: string | null): void {
     const item = this.selected;

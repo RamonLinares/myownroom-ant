@@ -2,6 +2,8 @@ import { CATALOG, CATEGORIES, type Category } from '../assets/catalog';
 import { RoomGame, type PlacedItem, type MoodName } from '../game/game';
 import { WALL_COLORS, FLOOR_COLORS, type RoomShape } from '../game/room';
 import { STYLE_RECIPES } from '../game/styles';
+import { ASSISTANT_QUESTIONS, generateRoom, type AssistantAnswers } from '../game/assistant';
+import { FAMOUS_ROOMS } from '../game/presets';
 import { WALL_FINISHES, FLOOR_FINISHES, type WallFinish, type FloorFinish } from '../assets/materials';
 import { thumbnail, measuredSize } from './thumbs';
 import { audio } from '../core/audio';
@@ -25,6 +27,7 @@ const ICONS = {
   muted: svg('<path d="M4 9.5v5h3l5 4.5v-14L7 9.5H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>'),
   trash: svg('<path d="M4 7h16M9.5 7V4.5h5V7"/><path d="M6 7l1 13.5h10L18 7"/><path d="M10 10.5v6M14 10.5v6"/>'),
   present: svg('<circle cx="12" cy="12" r="8.5"/><path d="M10 8.8l5.4 3.2-5.4 3.2v-6.4z" fill="currentColor" stroke="none"/>'),
+  sparkle: svg('<path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8-1.8 5.2-1.8-5.2-5.2-1.8 5.2-1.8L12 3.5z"/><path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z"/>'),
 };
 
 const MOOD_ICON: Record<MoodName, string> = { day: ICONS.sun, sunset: ICONS.sunset, night: ICONS.moon };
@@ -40,6 +43,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         <span class="count-badge" id="item-count">0</span>
       </div>
       <div class="topbar-actions">
+        <button class="icon-btn" id="btn-assist" title="Room assistant — answer a few questions, get a room"></button>
         <button class="icon-btn" id="btn-lock" title="Lock the room"></button>
         <button class="icon-btn" id="btn-room" title="Room size & shape"></button>
         <button class="icon-btn" id="btn-walk" title="Walk around your room"></button>
@@ -134,6 +138,10 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         <nav class="cat-tabs finish-tabs" id="style-chips"></nav>
       </div>
       <div class="finish-block">
+        <span class="insp-label">Famous rooms</span>
+        <nav class="cat-tabs finish-tabs" id="famous-chips"></nav>
+      </div>
+      <div class="finish-block">
         <span class="insp-label">Rooms in this home</span>
         <nav class="cat-tabs finish-tabs" id="rooms-list"></nav>
       </div>
@@ -165,6 +173,19 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
       <input type="file" id="room-file" accept=".json,application/json" hidden />
     </section>
 
+    <section class="assistant hidden" id="assistant">
+      <div class="inspector-head">
+        <h3>✨ Room assistant</h3>
+        <button class="icon-btn small" id="assist-close" title="Close">✕</button>
+      </div>
+      <div class="assist-dots" id="assist-dots"></div>
+      <p class="assist-q" id="assist-q"></p>
+      <div class="assist-opts" id="assist-opts"></div>
+      <div class="insp-actions">
+        <button class="pill-btn" id="assist-back">← Back</button>
+      </div>
+    </section>
+
     <div class="challenge hidden" id="challenge">
       <span id="challenge-text"></span>
       <button class="toast-btn hidden" id="challenge-accept">Start</button>
@@ -182,10 +203,11 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
         <li id="guide-mood">Try a lighting mood</li>
         <li id="guide-photo">Take a photo</li>
       </ol>
+      <p class="guide-tip">In a hurry? The ✨ assistant builds a whole room from five questions.</p>
     </aside>
 
-    <footer class="hintbar" id="hintbar">Tap an item in the catalog to add it · drag furniture to arrange your room</footer>
-    <div class="toast" id="toast"><span id="toast-text"></span><button class="toast-btn hidden" id="toast-btn"></button></div>
+    <footer class="hintbar" id="hintbar">Tap an item in the catalog to add it · drag to arrange · or let ✨ build a room for you</footer>
+    <div class="toast" id="toast"><span id="toast-text"></span><button class="toast-btn hidden" id="toast-btn"></button><button class="toast-btn hidden" id="toast-btn2"></button></div>
     <div class="flash" id="flash"></div>
     <div class="joystick hidden" id="joystick"><div class="joy-thumb" id="joy-thumb"></div></div>
     <section class="photo-card hidden" id="photo-card">
@@ -207,6 +229,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   );
 
   const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+  $('btn-assist').innerHTML = ICONS.sparkle;
   $('btn-room').innerHTML = ICONS.home;
   $('btn-walk').innerHTML = ICONS.walk;
   $('btn-photo').innerHTML = ICONS.camera;
@@ -223,22 +246,33 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   let activeCat: Category | 'Recent' = 'Seating';
   let toastTimer = 0;
 
+  type ToastAction = { label: string; fn: () => void };
   const toastBtn = $<HTMLButtonElement>('toast-btn');
+  const toastBtn2 = $<HTMLButtonElement>('toast-btn2');
   let toastAction: (() => void) | null = null;
+  let toastAction2: (() => void) | null = null;
   toastBtn.addEventListener('click', () => {
     toastAction?.();
     toastAction = null;
     toast.classList.remove('show');
   });
-  const showToast = (text: string, action?: { label: string; fn: () => void }): void => {
+  toastBtn2.addEventListener('click', () => {
+    toastAction2?.();
+    toastAction2 = null;
+    toast.classList.remove('show');
+  });
+  const showToast = (text: string, action?: ToastAction, action2?: ToastAction): void => {
     $('toast-text').textContent = text;
     toastAction = action?.fn ?? null;
     toastBtn.textContent = action?.label ?? '';
     toastBtn.classList.toggle('hidden', !action);
+    toastAction2 = action2?.fn ?? null;
+    toastBtn2.textContent = action2?.label ?? '';
+    toastBtn2.classList.toggle('hidden', !action2);
     toast.classList.toggle('actionable', !!action);
     toast.classList.add('show');
     window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => toast.classList.remove('show'), action ? 6000 : 1900);
+    toastTimer = window.setTimeout(() => toast.classList.remove('show'), action ? 8000 : 1900);
   };
 
   // ----- catalog -----
@@ -526,7 +560,7 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
     if (game.getMode() === 'edit') {
       hintbar.textContent = locked
         ? 'Room is locked — orbit, walk and photograph freely'
-        : 'Tap an item in the catalog to add it · drag furniture to arrange your room';
+        : 'Tap an item in the catalog to add it · drag to arrange · or let ✨ build a room for you';
     }
   };
   lockBtn.addEventListener('click', () => {
@@ -709,6 +743,167 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
       });
     });
     styleChips.appendChild(chip);
+  }
+
+  // ----- room assistant -----
+  const assistPanel = $('assistant');
+  const assistQ = $('assist-q');
+  const assistOpts = $('assist-opts');
+  const assistDots = $('assist-dots');
+  const assistBack = $<HTMLButtonElement>('assist-back');
+  let assistStep = 0;
+  let assistAnswers: Partial<AssistantAnswers> = {};
+  /** The room the assistant last generated, so Shuffle/Discard can find it. */
+  let lastBuild: { answers: AssistantAnswers; roomId: string; originId: string } | null = null;
+
+  const ASSIST_KEY = 'myownroom-ant-assistant-v1';
+  const loadAssistAnswers = (): AssistantAnswers | null => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(ASSIST_KEY) ?? 'null') as Record<string, string> | null;
+      if (!raw) return null;
+      // Every question must hold a valid option id, or the save is stale.
+      const ok = ASSISTANT_QUESTIONS.every((q) => q.options.some((o) => o.id === raw[q.id]));
+      return ok ? (raw as unknown as AssistantAnswers) : null;
+    } catch {
+      return null;
+    }
+  };
+  const saveAssistAnswers = (a: AssistantAnswers): void => {
+    try {
+      localStorage.setItem(ASSIST_KEY, JSON.stringify(a));
+    } catch {
+      // Best-effort only.
+    }
+  };
+
+  const buildAssistantRoom = (answers: AssistantAnswers, mode: 'new' | 'reroll'): void => {
+    if (mode === 'new') {
+      const originId = game.getActiveRoomId();
+      game.createRoom();
+      lastBuild = { answers, roomId: game.getActiveRoomId(), originId };
+    } else {
+      // Re-rolls always land on the generated room, even after switching away.
+      if (!lastBuild) return;
+      if (game.getActiveRoomId() !== lastBuild.roomId && !game.switchRoom(lastBuild.roomId)) return;
+    }
+    game.importRoom(generateRoom(answers));
+    if (lastBuild) game.connectRooms(lastBuild.originId);
+    saveAssistAnswers(answers);
+    syncAll();
+    audio.place();
+    showToast(
+      `“${game.getTitle()}” is ready — make it yours!`,
+      { label: '🎲 Shuffle', fn: () => buildAssistantRoom(answers, 'reroll') },
+      {
+        label: '🗑 Discard',
+        fn: () => {
+          if (lastBuild && game.deleteRoom(lastBuild.roomId)) {
+            lastBuild = null;
+            syncAll();
+            showToast('Room discarded');
+          }
+        },
+      }
+    );
+  };
+
+  const assistCard = (emoji: string, label: string, blurb: string, cls: string, fn: () => void): void => {
+    const card = document.createElement('button');
+    card.className = `assist-opt${cls}`;
+    card.innerHTML = `<span class="assist-emoji">${emoji}</span><span class="assist-text"><strong>${label}</strong><small>${blurb}</small></span>`;
+    card.addEventListener('click', fn);
+    assistOpts.appendChild(card);
+  };
+
+  const renderAssistant = (): void => {
+    const q = ASSISTANT_QUESTIONS[assistStep];
+    assistQ.textContent = q.prompt;
+    assistDots.innerHTML = ASSISTANT_QUESTIONS
+      .map((_, i) => `<span class="assist-dot${i === assistStep ? ' active' : i < assistStep ? ' done' : ''}"></span>`)
+      .join('');
+    assistBack.style.visibility = assistStep > 0 ? 'visible' : 'hidden';
+    assistOpts.innerHTML = '';
+    // Returning visitors get one-tap shortcuts before the first question.
+    if (assistStep === 0) {
+      if (lastBuild && game.getActiveRoomId() === lastBuild.roomId) {
+        const b = lastBuild;
+        assistCard('🎲', 'Shuffle this room', 'Same answers, fresh layout', ' shortcut', () => {
+          assistPanel.classList.add('hidden');
+          audio.click();
+          buildAssistantRoom(b.answers, 'reroll');
+        });
+      } else {
+        const saved = loadAssistAnswers();
+        if (saved) {
+          assistCard('✨', 'Another like last time', 'A new room from your previous answers', ' shortcut', () => {
+            assistPanel.classList.add('hidden');
+            audio.click();
+            buildAssistantRoom(saved, 'new');
+          });
+        }
+      }
+    }
+    for (const opt of q.options) {
+      assistCard(opt.emoji, opt.label, opt.blurb, '', () => {
+        (assistAnswers as Record<string, string>)[q.id] = opt.id;
+        audio.click();
+        if (assistStep < ASSISTANT_QUESTIONS.length - 1) {
+          assistStep++;
+          renderAssistant();
+        } else {
+          assistPanel.classList.add('hidden');
+          buildAssistantRoom(assistAnswers as AssistantAnswers, 'new');
+        }
+      });
+    }
+  };
+  assistBack.addEventListener('click', () => {
+    if (assistStep > 0) {
+      assistStep--;
+      audio.click();
+      renderAssistant();
+    }
+  });
+  $('btn-assist').addEventListener('click', () => {
+    if (game.getMode() === 'walk') return;
+    assistStep = 0;
+    assistAnswers = {};
+    roomPanel.classList.add('hidden');
+    assistPanel.classList.remove('hidden');
+    renderAssistant();
+    audio.click();
+  });
+  $('assist-close').addEventListener('click', () => {
+    assistPanel.classList.add('hidden');
+    audio.click();
+  });
+
+  // ----- famous rooms -----
+  const famousChips = $('famous-chips');
+  for (const preset of FAMOUS_ROOMS) {
+    const chip = document.createElement('button');
+    chip.className = 'cat-tab';
+    chip.textContent = `${preset.emoji} ${preset.name}`;
+    chip.title = preset.blurb;
+    chip.addEventListener('click', () => {
+      const origin = game.getActiveRoomId();
+      game.createRoom();
+      game.importRoom(preset.build());
+      game.connectRooms(origin);
+      syncAll();
+      roomPanel.classList.add('hidden');
+      audio.place();
+      showToast(`“${preset.name}” built — a room about nothing!`, {
+        label: '🗑 Discard',
+        fn: () => {
+          if (game.deleteRoom(game.getActiveRoomId())) {
+            syncAll();
+            showToast('Room discarded');
+          }
+        },
+      });
+    });
+    famousChips.appendChild(chip);
   }
 
   // ----- rooms in this home -----

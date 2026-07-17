@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { wood, fabric, matte, metal, rugTexture, fabricTexture, leatherTexture, type MaterialKind } from './materials';
 
 export type Category =
-  | 'Seating' | 'Beds' | 'Tables' | 'Storage' | 'Workspace'
+  | 'Seating' | 'Beds' | 'Tables' | 'Storage' | 'Kitchen' | 'Workspace'
   | 'Decor' | 'Toys' | 'Lighting' | 'Plants' | 'Rugs' | 'Wall' | 'Seasonal' | 'Sitcom';
 
 export interface ItemDef {
@@ -3201,6 +3201,508 @@ function makePumpkin(color: string): THREE.Group {
   return g;
 }
 
+// ------------------------------------------------------ kitchen corner
+
+const COUNTER_TOP = '#d8b98a';
+const CHROME = '#d8dce0';
+
+/** Shared cabinet carcass for counters: plinth, tinted body, butcher-block top. */
+function counterCarcass(g: THREE.Group, color: string, w: number): void {
+  const plinth = box(w - 0.1, 0.08, 0.48, matte('#3a3c42', 0.6));
+  plinth.position.y = 0.04;
+  g.add(plinth);
+  const body = rounded(w, 0.72, 0.56, 0.03, tint(matte(color, 0.55)));
+  body.position.y = 0.44;
+  g.add(body);
+  const top = rounded(w + 0.06, 0.05, 0.62, 0.015, wood(COUNTER_TOP));
+  top.position.y = 0.845;
+  g.add(top);
+}
+
+function makeKitchenCounter(color: string): THREE.Group {
+  const g = new THREE.Group();
+  counterCarcass(g, color, 1.2);
+  const seam = box(0.014, 0.6, 0.02, matte('#8f8c86', 0.5));
+  seam.position.set(0, 0.44, 0.28);
+  g.add(seam);
+  for (const side of [-0.3, 0.3]) {
+    const handle = cyl(0.014, 0.014, 0.16, metal(CHROME, 0.2), 8);
+    handle.rotation.z = Math.PI / 2;
+    handle.position.set(side, 0.68, 0.3);
+    g.add(handle);
+  }
+  shadow(g);
+  return g;
+}
+
+function makeKitchenSink(color: string): THREE.Group {
+  const g = new THREE.Group();
+  counterCarcass(g, color, 1.0);
+  const handle = cyl(0.014, 0.014, 0.16, metal(CHROME, 0.2), 8);
+  handle.rotation.z = Math.PI / 2;
+  handle.position.set(0, 0.68, 0.3);
+  g.add(handle);
+  // Farm-style basin sitting proud of the counter, faucet arching behind it.
+  const rim = rounded(0.5, 0.1, 0.4, 0.02, metal('#c8ccd0', 0.3));
+  rim.position.set(0, 0.9, 0.02);
+  g.add(rim);
+  const water = box(0.4, 0.012, 0.3, matte('#9db8c4', 0.25));
+  water.position.set(0, 0.955, 0.02);
+  g.add(water);
+  const chrome = metal(CHROME, 0.15);
+  const post = cyl(0.018, 0.024, 0.2, chrome, 10);
+  post.position.set(0.14, 1.02, -0.2);
+  g.add(post);
+  const arm = cyl(0.015, 0.015, 0.2, chrome, 10);
+  arm.rotation.x = Math.PI / 2;
+  arm.position.set(0.14, 1.12, -0.1);
+  g.add(arm);
+  const spout = cyl(0.015, 0.02, 0.06, chrome, 10);
+  spout.position.set(0.14, 1.09, -0.01);
+  g.add(spout);
+  shadow(g);
+  return g;
+}
+
+function makeKitchenStove(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const plinth = box(0.56, 0.08, 0.46, matte('#3a3c42', 0.6));
+  plinth.position.y = 0.04;
+  g.add(plinth);
+  const body = rounded(0.66, 0.74, 0.56, 0.03, tint(matte(color, 0.5)));
+  body.position.y = 0.45;
+  g.add(body);
+  const bezel = rounded(0.44, 0.28, 0.02, 0.03, matte('#3a3c42', 0.5));
+  bezel.position.set(0, 0.38, 0.285);
+  g.add(bezel);
+  const glass = box(0.34, 0.18, 0.01, matte('#26262a', 0.3));
+  glass.position.set(0, 0.38, 0.295);
+  g.add(glass);
+  const bar = cyl(0.016, 0.016, 0.5, metal(CHROME, 0.2), 10);
+  bar.rotation.z = Math.PI / 2;
+  bar.position.set(0, 0.6, 0.31);
+  g.add(bar);
+  for (const [i, x] of [-0.21, -0.07, 0.07, 0.21].entries()) {
+    const knob = cyl(0.022, 0.022, 0.025, metal(CHROME, 0.3), 10);
+    knob.rotation.x = Math.PI / 2;
+    knob.position.set(x, 0.74, 0.29);
+    knob.rotation.z = i * 0.7;
+    g.add(knob);
+  }
+  const hob = box(0.62, 0.025, 0.52, matte('#2f3136', 0.45));
+  hob.position.y = 0.835;
+  g.add(hob);
+  for (const [x, z, rr] of [[-0.16, -0.13, 0.075], [0.16, -0.13, 0.055], [-0.16, 0.13, 0.055], [0.16, 0.13, 0.075]] as Array<[number, number, number]>) {
+    const burner = cyl(rr, rr, 0.014, matte('#1c1c20', 0.4), 16);
+    burner.position.set(x, 0.855, z);
+    g.add(burner);
+  }
+  shadow(g);
+  return g;
+}
+
+function makeKitchenCabinet(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const body = rounded(0.9, 0.5, 0.28, 0.03, tint(matte(color, 0.55)));
+  g.add(body);
+  const seam = box(0.014, 0.42, 0.02, matte('#8f8c86', 0.5));
+  seam.position.set(0, 0, 0.14);
+  g.add(seam);
+  for (const side of [-0.08, 0.08]) {
+    const knob = cyl(0.018, 0.018, 0.03, metal(CHROME, 0.25), 10);
+    knob.rotation.x = Math.PI / 2;
+    knob.position.set(side, -0.14, 0.15);
+    g.add(knob);
+  }
+  const lip = box(0.94, 0.03, 0.32, wood(COUNTER_TOP));
+  lip.position.y = -0.265;
+  g.add(lip);
+  shadow(g);
+  return g;
+}
+
+function makeKettle(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const bodyMat = tint(matte(color, 0.35));
+  const body = cyl(0.075, 0.098, 0.15, bodyMat, 18);
+  body.position.y = 0.079;
+  g.add(body);
+  const lid = cyl(0.05, 0.062, 0.03, bodyMat, 14);
+  lid.position.y = 0.168;
+  g.add(lid);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.016, 10, 8), matte('#3a3c42', 0.5));
+  knob.position.y = 0.19;
+  g.add(knob);
+  const spout = cyl(0.013, 0.024, 0.1, bodyMat, 10);
+  spout.rotation.z = -0.75;
+  spout.position.set(0.1, 0.115, 0);
+  g.add(spout);
+  const grip = matte('#3a3c42', 0.5);
+  const handlePost = box(0.02, 0.09, 0.02, grip);
+  handlePost.position.set(-0.1, 0.13, 0);
+  handlePost.rotation.z = -0.35;
+  g.add(handlePost);
+  const handleTop = box(0.08, 0.02, 0.022, grip);
+  handleTop.position.set(-0.055, 0.185, 0);
+  g.add(handleTop);
+  shadow(g);
+  return g;
+}
+
+function makeCookingPot(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const body = cyl(0.105, 0.095, 0.115, metal('#9aa0a8', 0.3), 18);
+  body.position.y = 0.062;
+  g.add(body);
+  const lid = cyl(0.112, 0.112, 0.022, tint(matte(color, 0.45)), 18);
+  lid.position.y = 0.13;
+  g.add(lid);
+  const knob = cyl(0.02, 0.026, 0.025, matte('#3a3c42', 0.5), 10);
+  knob.position.y = 0.155;
+  g.add(knob);
+  for (const side of [-1, 1]) {
+    const handle = cyl(0.011, 0.011, 0.05, metal('#8f9299', 0.3), 8);
+    handle.rotation.z = Math.PI / 2;
+    handle.position.set(side * 0.125, 0.095, 0);
+    g.add(handle);
+  }
+  shadow(g);
+  return g;
+}
+
+function makeTallFridge(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const shell = tint(matte(color, 0.3));
+  const body = rounded(0.8, 1.9, 0.66, 0.06, shell);
+  body.position.y = 1.03;
+  g.add(body);
+  const seamMat = matte('#8f8c86', 0.5);
+  // French doors up top, freezer drawer below.
+  const hSeam = box(0.74, 0.015, 0.02, seamMat);
+  hSeam.position.set(0, 0.72, 0.335);
+  g.add(hSeam);
+  const vSeam = box(0.015, 1.2, 0.02, seamMat);
+  vSeam.position.set(0, 1.36, 0.335);
+  g.add(vSeam);
+  const chrome = metal('#d8dce0', 0.2);
+  for (const side of [-1, 1]) {
+    const handle = cyl(0.018, 0.018, 0.5, chrome, 10);
+    handle.position.set(side * 0.07, 1.3, 0.37);
+    g.add(handle);
+  }
+  const drawerHandle = cyl(0.016, 0.016, 0.4, chrome, 10);
+  drawerHandle.rotation.z = Math.PI / 2;
+  drawerHandle.position.set(0, 0.6, 0.37);
+  g.add(drawerHandle);
+  const plinth = box(0.7, 0.08, 0.54, matte('#3a3c42', 0.6));
+  plinth.position.y = 0.04;
+  g.add(plinth);
+  shadow(g);
+  return g;
+}
+
+function makeMiniFridge(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const body = rounded(0.55, 0.78, 0.55, 0.04, tint(matte(color, 0.35)));
+  body.position.y = 0.45;
+  g.add(body);
+  const handle = cyl(0.015, 0.015, 0.3, metal('#d8dce0', 0.2), 8);
+  handle.position.set(0.2, 0.5, 0.3);
+  g.add(handle);
+  const top = rounded(0.58, 0.035, 0.58, 0.012, wood(COUNTER_TOP));
+  top.position.y = 0.855;
+  g.add(top);
+  const plinth = box(0.47, 0.06, 0.45, matte('#3a3c42', 0.6));
+  plinth.position.y = 0.03;
+  g.add(plinth);
+  shadow(g);
+  return g;
+}
+
+function makeRangeHood(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const shell = tint(matte(color, 0.3));
+  // Square canopy frustum: a 4-segment cylinder turned 45° so faces align.
+  const canopy = cyl(0.17, 0.42, 0.24, shell, 4);
+  canopy.rotation.y = Math.PI / 4;
+  canopy.position.y = -0.18;
+  g.add(canopy);
+  const duct = box(0.24, 0.5, 0.22, shell);
+  duct.position.y = 0.19;
+  g.add(duct);
+  const rim = box(0.6, 0.035, 0.42, metal('#c8ccd0', 0.25));
+  rim.position.y = -0.31;
+  g.add(rim);
+  const lamp = box(0.3, 0.012, 0.14, matte('#fff2dc', 0.4));
+  lamp.position.y = -0.33;
+  g.add(lamp);
+  shadow(g);
+  return g;
+}
+
+function makeInductionStove(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const plinth = box(0.56, 0.08, 0.46, matte('#3a3c42', 0.6));
+  plinth.position.y = 0.04;
+  g.add(plinth);
+  const body = rounded(0.66, 0.74, 0.56, 0.03, tint(matte(color, 0.4)));
+  body.position.y = 0.45;
+  g.add(body);
+  const bezel = rounded(0.44, 0.28, 0.02, 0.03, matte('#3a3c42', 0.5));
+  bezel.position.set(0, 0.38, 0.285);
+  g.add(bezel);
+  const glass = box(0.34, 0.18, 0.01, matte('#26262a', 0.3));
+  glass.position.set(0, 0.38, 0.295);
+  g.add(glass);
+  const bar = cyl(0.016, 0.016, 0.5, metal('#d8dce0', 0.2), 10);
+  bar.rotation.z = Math.PI / 2;
+  bar.position.set(0, 0.6, 0.31);
+  g.add(bar);
+  // Flat ceramic top with printed rings instead of burners.
+  const top = box(0.62, 0.02, 0.52, matte('#1a1a1e', 0.25));
+  top.position.y = 0.835;
+  g.add(top);
+  for (const [x, z, rr] of [[-0.15, -0.12, 0.075], [0.15, -0.12, 0.055], [-0.15, 0.13, 0.055], [0.15, 0.13, 0.075]] as Array<[number, number, number]>) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.005, 6, 24), matte('#4a565e', 0.4));
+    ring.rotation.x = Math.PI / 2;
+    ring.position.set(x, 0.847, z);
+    g.add(ring);
+  }
+  for (let i = 0; i < 4; i++) {
+    const dot = cyl(0.008, 0.008, 0.006, matte('#c8ccd0', 0.3), 8);
+    dot.position.set(-0.09 + i * 0.06, 0.847, 0.225);
+    g.add(dot);
+  }
+  shadow(g);
+  return g;
+}
+
+function makeDoubleOven(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const plinth = box(0.56, 0.08, 0.46, matte('#3a3c42', 0.6));
+  plinth.position.y = 0.04;
+  g.add(plinth);
+  const body = rounded(0.66, 1.28, 0.56, 0.03, tint(matte(color, 0.45)));
+  body.position.y = 0.72;
+  g.add(body);
+  const chrome = metal('#d8dce0', 0.2);
+  for (const y of [0.42, 0.94]) {
+    const bezel = rounded(0.46, 0.3, 0.02, 0.03, matte('#3a3c42', 0.5));
+    bezel.position.set(0, y, 0.285);
+    g.add(bezel);
+    const glass = box(0.36, 0.2, 0.01, matte('#26262a', 0.3));
+    glass.position.set(0, y, 0.295);
+    g.add(glass);
+    const bar = cyl(0.015, 0.015, 0.48, chrome, 10);
+    bar.rotation.z = Math.PI / 2;
+    bar.position.set(0, y + 0.19, 0.31);
+    g.add(bar);
+  }
+  for (const [i, x] of [-0.18, -0.06, 0.06, 0.18].entries()) {
+    const knob = cyl(0.02, 0.02, 0.025, chrome, 10);
+    knob.rotation.x = Math.PI / 2;
+    knob.rotation.z = i * 0.6;
+    knob.position.set(x, 1.28, 0.29);
+    g.add(knob);
+  }
+  shadow(g);
+  return g;
+}
+
+function makeMicrowave(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const body = rounded(0.5, 0.3, 0.36, 0.025, tint(matte(color, 0.4)));
+  body.position.y = 0.16;
+  g.add(body);
+  // Door glass and buttons sit proud of the beveled face (front ≈ z 0.19)
+  // so no surface is coplanar with the shell.
+  const glass = box(0.28, 0.2, 0.01, matte('#26262a', 0.3));
+  glass.position.set(-0.06, 0.16, 0.193);
+  g.add(glass);
+  const handle = cyl(0.01, 0.01, 0.2, metal('#d8dce0', 0.2), 8);
+  handle.position.set(0.1, 0.16, 0.205);
+  g.add(handle);
+  for (let i = 0; i < 3; i++) {
+    const btn = box(0.05, 0.025, 0.012, matte('#3a3c42', 0.5));
+    btn.position.set(0.18, 0.23 - i * 0.05, 0.194);
+    g.add(btn);
+  }
+  shadow(g);
+  return g;
+}
+
+function makeAirFryer(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const body = cyl(0.13, 0.15, 0.32, tint(matte(color, 0.35)), 20);
+  body.position.y = 0.17;
+  g.add(body);
+  const drawer = rounded(0.2, 0.13, 0.03, 0.02, matte('#26262a', 0.4));
+  drawer.position.set(0, 0.1, 0.135);
+  g.add(drawer);
+  const gripBar = box(0.14, 0.025, 0.03, matte('#3a3c42', 0.5));
+  gripBar.position.set(0, 0.16, 0.16);
+  g.add(gripBar);
+  const dial = cyl(0.03, 0.03, 0.015, metal('#d8dce0', 0.25), 12);
+  dial.rotation.x = Math.PI / 2;
+  dial.position.set(0, 0.28, 0.13);
+  g.add(dial);
+  const vent = box(0.1, 0.01, 0.06, matte('#3a3c42', 0.5));
+  vent.position.set(0, 0.335, -0.04);
+  g.add(vent);
+  shadow(g);
+  return g;
+}
+
+function makePizzaOven(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const slab = box(0.55, 0.06, 0.45, matte('#8a7a6a', 0.7));
+  slab.position.y = 0.03;
+  g.add(slab);
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(0.23, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+    tint(matte(color, 0.6))
+  );
+  dome.position.y = 0.06;
+  g.add(dome);
+  // Arched mouth: a dark disc set into the dome front.
+  const mouth = cyl(0.09, 0.09, 0.02, matte('#26262a', 0.4), 16);
+  mouth.rotation.x = Math.PI / 2;
+  mouth.position.set(0, 0.09, 0.185);
+  g.add(mouth);
+  const lip = box(0.24, 0.025, 0.08, matte('#8a7a6a', 0.7));
+  lip.position.set(0, 0.07, 0.24);
+  g.add(lip);
+  const chimney = cyl(0.028, 0.035, 0.12, matte('#3a3c42', 0.5), 10);
+  chimney.position.set(0, 0.3, -0.08);
+  g.add(chimney);
+  shadow(g);
+  return g;
+}
+
+function makeKitchenIsland(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const plinth = box(1.4, 0.08, 0.6, matte('#3a3c42', 0.6));
+  plinth.position.y = 0.04;
+  g.add(plinth);
+  const body = rounded(1.5, 0.72, 0.68, 0.03, tint(matte(color, 0.55)));
+  body.position.y = 0.44;
+  g.add(body);
+  // Top overhangs the seating side so stools tuck under.
+  const top = rounded(1.64, 0.05, 0.86, 0.015, wood(COUNTER_TOP));
+  top.position.set(0, 0.845, 0.05);
+  g.add(top);
+  const seamMat = matte('#8f8c86', 0.5);
+  for (const x of [-0.25, 0.25]) {
+    const seam = box(0.014, 0.6, 0.02, seamMat);
+    seam.position.set(x, 0.44, -0.34);
+    g.add(seam);
+  }
+  const rail = cyl(0.012, 0.012, 0.4, metal('#d8dce0', 0.2), 8);
+  rail.rotation.z = Math.PI / 2;
+  rail.position.set(0.55, 0.6, -0.35);
+  g.add(rail);
+  shadow(g);
+  return g;
+}
+
+function makeBarStool(color: string): THREE.Group {
+  const g = new THREE.Group();
+  // Retro diner stool: round base, chrome column, footring, padded swivel seat.
+  const chrome = metal('#c8ccd0', 0.2);
+  const base = cyl(0.15, 0.19, 0.05, chrome, 20);
+  base.position.y = 0.025;
+  g.add(base);
+  const column = cyl(0.035, 0.045, 0.52, chrome, 14);
+  column.position.y = 0.31;
+  g.add(column);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.125, 0.012, 8, 24), chrome);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.19;
+  g.add(ring);
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2 + 0.5;
+    const strut = cyl(0.008, 0.008, 0.1, chrome, 6);
+    strut.rotation.set(0, -a, Math.PI / 2);
+    strut.position.set(Math.cos(a) * 0.075, 0.19, Math.sin(a) * 0.075);
+    g.add(strut);
+  }
+  const band = cyl(0.165, 0.165, 0.045, chrome, 24);
+  band.position.y = 0.585;
+  g.add(band);
+  const cushion = cyl(0.17, 0.16, 0.075, tint(fabric(color)), 24);
+  cushion.position.y = 0.645;
+  g.add(cushion);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.17, 20, 8), tint(fabric(color)));
+  cap.scale.set(1, 0.28, 1);
+  cap.position.y = 0.682;
+  g.add(cap);
+  shadow(g);
+  return g;
+}
+
+function makeRiceCooker(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const body = cyl(0.13, 0.145, 0.15, tint(matte(color, 0.35)), 20);
+  body.position.y = 0.085;
+  g.add(body);
+  const lid = cyl(0.1, 0.13, 0.05, matte('#e8e6e2', 0.4), 20);
+  lid.position.y = 0.185;
+  g.add(lid);
+  const knob = box(0.06, 0.02, 0.03, matte('#3a3c42', 0.5));
+  knob.position.y = 0.22;
+  g.add(knob);
+  const panel = box(0.08, 0.06, 0.008, matte('#e8e6e2', 0.4));
+  panel.position.set(0, 0.08, 0.14);
+  g.add(panel);
+  const btn = cyl(0.012, 0.012, 0.01, matte('#b0685e', 0.5), 8);
+  btn.rotation.x = Math.PI / 2;
+  btn.position.set(0, 0.06, 0.146);
+  g.add(btn);
+  for (const side of [-1, 1]) {
+    const handle = box(0.025, 0.015, 0.05, matte('#3a3c42', 0.5));
+    handle.position.set(side * 0.15, 0.12, 0);
+    g.add(handle);
+  }
+  shadow(g);
+  return g;
+}
+
+function makeFryingPan(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const pan = cyl(0.11, 0.095, 0.045, matte('#2c2e33', 0.4), 20);
+  pan.position.y = 0.028;
+  g.add(pan);
+  const inner = cyl(0.095, 0.095, 0.008, matte('#3d4045', 0.35), 20);
+  inner.position.y = 0.05;
+  g.add(inner);
+  const handle = box(0.16, 0.02, 0.028, tint(matte(color, 0.5)));
+  handle.position.set(0.18, 0.042, 0);
+  g.add(handle);
+  const loop = cyl(0.008, 0.008, 0.02, matte('#8f9299', 0.4), 8);
+  loop.rotation.x = Math.PI / 2;
+  loop.position.set(0.255, 0.042, 0);
+  g.add(loop);
+  shadow(g);
+  return g;
+}
+
+function makeMugs(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const tones = [color, '#7ea8b8', '#e0d4bd'];
+  for (const [i, [x, z]] of ([[-0.055, 0.01], [0.05, -0.02], [0, 0.055]] as Array<[number, number]>).entries()) {
+    const mat = i === 0 ? tint(matte(tones[i], 0.5)) : matte(tones[i], 0.5);
+    const mug = cyl(0.028, 0.025, 0.062, mat, 14);
+    mug.position.set(x, 0.031, z);
+    g.add(mug);
+    const handle = box(0.012, 0.03, 0.008, mat);
+    handle.position.set(x + 0.032, 0.032, z);
+    handle.rotation.y = i * 1.1;
+    g.add(handle);
+  }
+  shadow(g);
+  return g;
+}
+
 // ---------------------------------------------------------------- registry
 
 const WOODS = ['#b98a5e', '#6b4a2f', '#e0d4bd', '#3d3f45'];
@@ -3237,6 +3739,26 @@ export const CATALOG: ItemDef[] = [
   { id: 'basket', name: 'Woven Basket', cat: 'Storage', colors: ['#c9b48a', '#b8907a', '#8a7a9e'], make: makeBasket },
   { id: 'filing-cabinet', name: 'Filing Cabinet', cat: 'Storage', colors: ['#8f9299', '#5e7a94', '#3d3f45'], make: makeFilingCabinet, surface: true },
   // Workspace
+  { id: 'kitchen-counter', name: 'Kitchen Counter', cat: 'Kitchen', colors: ['#7d9471', '#e0d4bd', '#5e7a94', '#b0685e'], make: makeKitchenCounter, surface: true },
+  { id: 'kitchen-sink', name: 'Sink Counter', cat: 'Kitchen', colors: ['#7d9471', '#e0d4bd', '#5e7a94', '#b0685e'], make: makeKitchenSink, surface: true },
+  { id: 'stove', name: 'Cooker Stove', cat: 'Kitchen', colors: ['#e0d4bd', '#3d3f45', '#b0685e', '#7d9471'], make: makeKitchenStove, surface: true },
+  { id: 'kitchen-cabinet', name: 'Wall Cupboard', cat: 'Kitchen', colors: ['#7d9471', '#e0d4bd', '#5e7a94', '#b0685e'], make: makeKitchenCabinet, wall: true },
+  { id: 'kettle', name: 'Whistling Kettle', cat: 'Kitchen', colors: ['#b0685e', '#7ea8b8', '#e0d4bd'], make: makeKettle, stackable: true },
+  { id: 'cooking-pot', name: 'Stew Pot', cat: 'Kitchen', colors: ['#b0685e', '#5e7a94', '#7d9471'], make: makeCookingPot, stackable: true },
+  { id: 'tall-fridge', name: 'Family Fridge', cat: 'Kitchen', colors: ['#c8ccd0', '#3d3f45', '#e0d4bd', '#7d9471'], make: makeTallFridge, surface: true },
+  { id: 'mini-fridge', name: 'Mini Fridge', cat: 'Kitchen', colors: ['#7ea8b8', '#e0d4bd', '#b0685e', '#3d3f45'], make: makeMiniFridge, surface: true },
+  { id: 'range-hood', name: 'Extractor Hood', cat: 'Kitchen', colors: ['#c8ccd0', '#3d3f45', '#e0d4bd'], make: makeRangeHood, wall: true },
+  { id: 'induction-stove', name: 'Induction Stove', cat: 'Kitchen', colors: ['#e8e6e2', '#3d3f45', '#7d9471'], make: makeInductionStove, surface: true },
+  { id: 'oven', name: 'Double Oven', cat: 'Kitchen', colors: ['#3d3f45', '#e0d4bd', '#b0685e'], make: makeDoubleOven, surface: true },
+  { id: 'microwave', name: 'Microwave', cat: 'Kitchen', colors: ['#e0d4bd', '#3d3f45', '#b0685e', '#7ea8b8'], make: makeMicrowave, stackable: true },
+  { id: 'air-fryer', name: 'Air Fryer', cat: 'Kitchen', colors: ['#3d3f45', '#e0d4bd', '#b0685e'], make: makeAirFryer, stackable: true },
+  { id: 'pizza-oven', name: 'Pizza Oven', cat: 'Kitchen', colors: ['#c9856a', '#e0d4bd', '#8a9a94'], make: makePizzaOven, stackable: true },
+  { id: 'kitchen-island', name: 'Kitchen Island', cat: 'Kitchen', colors: ['#7d9471', '#e0d4bd', '#5e7a94', '#b0685e'], make: makeKitchenIsland, surface: true },
+  { id: 'bar-stool', name: 'Bar Stool', cat: 'Kitchen', colors: ['#b0685e', '#7d9471', '#5e7a94', '#c9b48a'], make: makeBarStool },
+  { id: 'rice-cooker', name: 'Rice Cooker', cat: 'Kitchen', colors: ['#e8e6e2', '#b0685e', '#7ea8b8'], make: makeRiceCooker, stackable: true },
+  { id: 'frying-pan', name: 'Frying Pan', cat: 'Kitchen', colors: ['#b0685e', '#3d3f45', '#7d9471'], make: makeFryingPan, stackable: true },
+  { id: 'mugs', name: 'Mug Trio', cat: 'Kitchen', colors: ['#b0685e', '#7d9471', '#c9a04a'], make: makeMugs, stackable: true },
+
   { id: 'desk-chair', name: 'Rolling Desk Chair', cat: 'Workspace', colors: ['#3d3f45', '#b0685e', '#7d9471'], make: makeDeskChair },
   { id: 'standing-desk', name: 'Bamboo Standing Desk', cat: 'Workspace', colors: ['#d8b98a', '#b98a5e', '#e0d4bd'], make: makeStandingDesk, surface: true },
   { id: 'air-purifier', name: 'Air Purifier', cat: 'Workspace', colors: ['#f2f0ec', '#d8d4cc', '#3d3f45'], make: makeAirPurifier },
@@ -3322,7 +3844,7 @@ export const CATALOG: ItemDef[] = [
 ];
 
 export const CATEGORIES: Category[] = [
-  'Seating', 'Beds', 'Tables', 'Storage', 'Workspace', 'Decor', 'Toys', 'Lighting', 'Plants', 'Rugs', 'Wall', 'Seasonal', 'Sitcom',
+  'Seating', 'Beds', 'Tables', 'Storage', 'Kitchen', 'Workspace', 'Decor', 'Toys', 'Lighting', 'Plants', 'Rugs', 'Wall', 'Seasonal', 'Sitcom',
 ];
 
 // Finish options per item; the first entry matches the factory's native look.
@@ -3334,7 +3856,7 @@ export const CATEGORIES: Category[] = [
     }
   };
   assign(
-    ['sofa', 'corner-sofa', 'armchair', 'ottoman', 'cushion', 'bed', 'canopy-bed', 'desk-chair', 'ergo-chair', 'teddy', 'basket', 'orange-sofa', 'recliner'],
+    ['sofa', 'corner-sofa', 'armchair', 'ottoman', 'cushion', 'bed', 'canopy-bed', 'desk-chair', 'ergo-chair', 'teddy', 'basket', 'orange-sofa', 'recliner', 'bar-stool'],
     ['fabric', 'leather', 'plain']
   );
   assign(
@@ -3347,7 +3869,10 @@ export const CATEGORIES: Category[] = [
   assign(
     ['modern-door', 'tv', 'piano', 'dog-statue', 'fridge', 'wall-bike', 'plant', 'small-plant', 'fern', 'mushroom-pot', 'floor-lamp', 'table-lamp', 'candles', 'radio',
      'train', 'camera', 'dollhouse', 'desktop', 'keyboard', 'printer', 'rolling-drawers', 'radiator',
-     'wall-ac', 'monitor', 'ultrawide', 'vase'],
+     'wall-ac', 'monitor', 'ultrawide', 'vase',
+     'kitchen-counter', 'kitchen-sink', 'stove', 'kitchen-cabinet', 'kettle', 'cooking-pot',
+     'tall-fridge', 'mini-fridge', 'range-hood', 'induction-stove', 'oven', 'microwave',
+     'air-fryer', 'pizza-oven', 'kitchen-island', 'rice-cooker', 'frying-pan', 'mugs'],
     ['plain', 'wood', 'metal']
   );
   assign(['filing-cabinet', 'laptop', 'globe', 'telescope'], ['metal', 'plain', 'wood']);
