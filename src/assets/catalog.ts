@@ -2489,7 +2489,7 @@ function makeDogStatue(color: string): THREE.Group {
   return g;
 }
 
-/** Striped upholstery with a couple of tape patches, drawn once. */
+/** Striped upholstery, grayscale so any tint stays clean; drawn once. */
 const reclinerTexture = (() => {
   let tex: THREE.CanvasTexture | null = null;
   return (): THREE.CanvasTexture => {
@@ -2497,13 +2497,13 @@ const reclinerTexture = (() => {
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 128;
     const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#cabc9c';
+    ctx.fillStyle = '#e2e2e2';
     ctx.fillRect(0, 0, 128, 128);
-    for (let x = 0; x < 128; x += 22) {
-      ctx.fillStyle = '#8a705a';
-      ctx.fillRect(x, 0, 9, 128);
-      ctx.fillStyle = '#a89478';
-      ctx.fillRect(x + 14, 0, 4, 128);
+    for (let x = 0; x < 128; x += 26) {
+      ctx.fillStyle = '#b4b4b4';
+      ctx.fillRect(x, 0, 10, 128);
+      ctx.fillStyle = '#cecece';
+      ctx.fillRect(x + 16, 0, 5, 128);
     }
     tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -2515,36 +2515,51 @@ const reclinerTexture = (() => {
 function makeRecliner(color: string): THREE.Group {
   const g = new THREE.Group();
   const striped = tint(new THREE.MeshStandardMaterial({ color, map: reclinerTexture(), roughness: 0.92 }));
-  const base = rounded(0.92, 0.5, 0.9, 0.09, striped);
-  base.position.y = 0.34;
+  const base = rounded(0.94, 0.48, 0.88, 0.09, striped);
+  base.position.y = 0.32;
   g.add(base);
-  const seat = rounded(0.62, 0.16, 0.6, 0.07, striped);
-  seat.position.set(0, 0.56, 0.06);
+  const seat = rounded(0.56, 0.15, 0.6, 0.07, striped);
+  seat.position.set(0, 0.55, 0.08);
   g.add(seat);
-  const back = rounded(0.86, 0.78, 0.28, 0.1, striped);
-  back.position.set(0, 0.86, -0.34);
-  back.rotation.x = -0.28;
+  // Back grows out of the base, gently reclined, with a pillowy headrest roll.
+  const back = rounded(0.88, 0.62, 0.3, 0.1, striped);
+  back.position.set(0, 0.76, -0.28);
+  back.rotation.x = -0.18;
   g.add(back);
+  const headrest = cyl(0.13, 0.13, 0.8, striped, 16);
+  headrest.rotation.z = Math.PI / 2;
+  headrest.position.set(0, 1.1, -0.36);
+  g.add(headrest);
   for (const side of [-1, 1]) {
-    const arm = rounded(0.22, 0.42, 0.8, 0.08, striped);
-    arm.position.set(side * 0.44, 0.62, 0.02);
+    const arm = rounded(0.24, 0.4, 0.82, 0.09, striped);
+    arm.position.set(side * 0.42, 0.6, 0.02);
     g.add(arm);
+    const armCap = cyl(0.12, 0.12, 0.24, striped, 14);
+    armCap.rotation.x = Math.PI / 2;
+    armCap.position.set(side * 0.42, 0.78, 0.32);
+    g.add(armCap);
   }
-  // Footrest flipped out.
-  const footrest = rounded(0.56, 0.1, 0.34, 0.05, striped);
-  footrest.position.set(0, 0.38, 0.62);
-  footrest.rotation.x = 0.5;
+  // Footrest kicked out, connected by visible linkage bars.
+  const footrest = rounded(0.52, 0.09, 0.32, 0.045, striped);
+  footrest.position.set(0, 0.42, 0.6);
+  footrest.rotation.x = 0.35;
   g.add(footrest);
-  // Loyal tape patches.
+  const linkMat = metal('#3d3f45', 0.4);
+  for (const side of [-0.18, 0.18]) {
+    const link = cyl(0.012, 0.012, 0.4, linkMat, 8);
+    link.position.set(side, 0.28, 0.44);
+    link.rotation.x = 0.9;
+    g.add(link);
+  }
+  // Loyal tape patches, flush with their surfaces.
   const tape = matte('#9a9a94', 0.5);
-  const patch1 = box(0.16, 0.05, 0.24, tape);
-  patch1.position.set(0.45, 0.84, 0.05);
-  patch1.rotation.z = 0.15;
+  const patch1 = box(0.18, 0.012, 0.2, tape);
+  patch1.position.set(0.42, 0.792, 0.18);
   g.add(patch1);
-  const patch2 = box(0.14, 0.2, 0.02, tape);
-  patch2.position.set(-0.2, 0.95, -0.2);
-  patch2.rotation.x = -0.28;
-  patch2.rotation.z = 0.4;
+  const patch2 = box(0.16, 0.14, 0.012, tape);
+  patch2.position.set(-0.18, 0.82, -0.122);
+  patch2.rotation.x = -0.18;
+  patch2.rotation.z = 0.35;
   g.add(patch2);
   shadow(g);
   return g;
