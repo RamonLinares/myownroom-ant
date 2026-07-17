@@ -278,6 +278,12 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
       });
       tabs.appendChild(b);
     }
+    // Keep the active chip visible in the single scrolling row.
+    const active = tabs.querySelector<HTMLElement>('.cat-tab.active');
+    if (active) {
+      const left = active.offsetLeft - tabs.clientWidth / 2 + active.offsetWidth / 2;
+      tabs.scrollLeft = Math.max(0, left);
+    }
   };
 
   const renderGrid = (): void => {
@@ -332,7 +338,10 @@ export function buildUI(root: HTMLElement, game: RoomGame): void {
   });
 
   $('btn-close-catalog').addEventListener('click', () => catalogEl.classList.add('collapsed'));
-  $('btn-open-catalog').addEventListener('click', () => catalogEl.classList.remove('collapsed'));
+  $('btn-open-catalog').addEventListener('click', () => {
+    catalogEl.classList.remove('collapsed');
+    renderTabs();
+  });
 
   const glbFile = $<HTMLInputElement>('glb-file');
   $('btn-import-glb').addEventListener('click', () => glbFile.click());

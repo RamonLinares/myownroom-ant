@@ -202,6 +202,23 @@ canvas.game-canvas {
   padding: 4px 12px 10px;
 }
 
+/* The catalog's own tab row stays on one line and scrolls sideways. */
+#cat-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  touch-action: pan-x;
+  mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 18px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 18px), transparent);
+}
+
+#cat-tabs::-webkit-scrollbar { display: none; }
+
+#cat-tabs .cat-tab {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .cat-tab {
   border: none;
   background: rgba(255, 255, 255, 0.07);
