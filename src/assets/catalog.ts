@@ -2860,7 +2860,8 @@ function makeCrtTV(color: string): THREE.Group {
   for (const side of [-1, 1]) {
     const ear = cyl(0.005, 0.005, 0.42, metal(METAL_GREY), 6);
     ear.position.set(side * 0.1, 0.76, -0.05);
-    ear.rotation.z = side * 0.5;
+    // Tops splay outward so the ears read as a V rising from the base.
+    ear.rotation.z = -side * 0.5;
     g.add(ear);
   }
   shadow(g);
